@@ -1,0 +1,150 @@
+from __future__ import annotations
+
+from typing import Any
+
+from .._utils import SizeLike, normalize_shape, total_size
+
+
+class TorchBackend:
+    def __init__(
+        self,
+        *,
+        seed: int | None,
+        generator: Any | None,
+        device: Any | None,
+    ) -> None:
+        try:
+            import torch
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise ImportError(
+                "PyTorch backend requires the 'torch' package to be installed. "
+                "Install it with `pip install orng[torch]`."
+            ) from exc
+
+        self._torch = torch
+        self._device = device if device is not None else torch.device("cpu")
+        if generator is None:
+            self._generator = torch.Generator(device=self._device)
+            if seed is not None:
+                self._generator.manual_seed(seed)
+        elif isinstance(generator, torch.Generator):
+            self._generator = generator
+        else:
+            raise TypeError(
+                "generator must be a torch.Generator when using the PyTorch "
+                "backend."
+            )
+
+    def random(self, *, size: SizeLike, dtype: Any | None) -> Any:
+        shape = normalize_shape(size)
+        dtype = dtype if dtype is not None else self._torch.float32
+        if not shape:
+            result = self._torch.rand(
+                (1,),
+                generator=self._generator,
+                device=self._device,
+                dtype=dtype,
+            )
+            return result[0]
+        return self._torch.rand(
+            shape,
+            generator=self._generator,
+            device=self._device,
+            dtype=dtype,
+        )
+
+    def normal(
+        self,
+        *,
+        loc: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> Any:
+        shape = normalize_shape(size)
+        dtype = dtype if dtype is not None else self._torch.float32
+        if not shape:
+            sample = self._torch.randn(
+                (1,),
+                generator=self._generator,
+                device=self._device,
+                dtype=dtype,
+            )
+            return sample[0] * scale + loc
+        base = self._torch.randn(
+            shape,
+            generator=self._generator,
+            device=self._device,
+            dtype=dtype,
+        )
+        return base * scale + loc
+
+    def choice(
+        self,
+        population: int | Any,
+        *,
+        size: SizeLike,
+        replace: bool,
+        probabilities: Any | None,
+    ) -> Any:
+        shape = normalize_shape(size)
+        num_samples = total_size(shape)
+
+        if isinstance(population, int):
+            pop_size = population
+            population_tensor = None
+        else:
+            population_tensor = self._torch.as_tensor(
+                population, device=self._device
+            )
+            if population_tensor.ndim == 0:
+                population_tensor = population_tensor.reshape(1)
+            pop_size = int(population_tensor.shape[0])
+
+        if probabilities is not None:
+            probs_tensor = self._torch.as_tensor(
+                probabilities,
+                dtype=self._torch.double,
+                device=self._device,
+            )
+            if probs_tensor.ndim != 1 or probs_tensor.shape[0] != pop_size:
+                raise ValueError(
+                    "Probabilities must be a 1-D array matching the population."
+                )
+            indices = self._torch.multinomial(
+                probs_tensor,
+                num_samples,
+                replacement=replace,
+                generator=self._generator,
+            )
+        else:
+            if not replace and num_samples > pop_size:
+                raise ValueError(
+                    "Cannot take a larger sample than population when "
+                    "replace=False."
+                )
+            if replace:
+                indices = self._torch.randint(
+                    pop_size,
+                    (num_samples,),
+                    generator=self._generator,
+                    device=self._device,
+                )
+            else:
+                indices = self._torch.randperm(
+                    pop_size,
+                    generator=self._generator,
+                    device=self._device,
+                )[:num_samples]
+
+        if population_tensor is not None:
+            draws = population_tensor.index_select(0, indices)
+        else:
+            draws = indices
+
+        if not shape:
+            return draws[0]
+        return draws.reshape(shape)
+
+
+__all__ = ["TorchBackend"]
