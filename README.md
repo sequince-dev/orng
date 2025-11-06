@@ -18,7 +18,7 @@ currently supported:
 
 ## Installation
 
-The core package only depends on `array-api-compat`:
+The core package only depends on the standard Python library:
 
 ```bash
 pip install orng

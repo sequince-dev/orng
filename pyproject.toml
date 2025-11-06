@@ -8,17 +8,18 @@ description = "Omni RNG: A unified, cross-backend random number generator built 
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-authors = [{ name = "Michael J. Williams" }]
-dependencies = [
-    "array-api-compat",
+authors = [
+    { name = "Michael J. Williams" },
+    { name = "Christian Chapman-Bird" }
 ]
+dependencies = []
 dynamic = [
     "version"
 ]
 
 [project.urls]
-Homepage = "https://github.com/sequince-dev/omni"
-Repository = "https://github.com/sequince-dev/omni"
+Homepage = "https://github.com/sequince-dev/orng"
+Repository = "https://github.com/sequince-dev/orng"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -49,7 +50,7 @@ dev = [
 [tool.ruff]
 line-length = 79
 indent-width = 4
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 # Allow fix for all enabled rules (when `--fix`) is provided.
