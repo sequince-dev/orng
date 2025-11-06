@@ -1,9 +1,20 @@
 # Omni RNG (`orng`)
 
 `orng` provides a thin facade over several Array API–compatible random number
-generators. It mirrors the subset of the `numpy.random.Generator` API currently
-needed by the Sequince project, while letting you pick the underlying backend at
-runtime (`numpy`, `torch`, `cupy`, or `jax`).
+generators. It mirrors the subset of the `numpy.random.Generator` API:
+
+- `random`
+- `uniform`
+- `normal`
+- `choice`
+
+letting you pick the underlying backend at runtime. The following backends are
+currently supported:
+
+- `numpy`
+- `torch`
+- `cupy`
+- `jax`
 
 ## Installation
 
@@ -31,6 +42,7 @@ from orng import ArrayRNG
 
 rng = ArrayRNG(backend="numpy", seed=42)
 samples = rng.normal(loc=0.0, scale=1.0, size=5)
+uniform = rng.uniform(low=-1.0, high=1.0, size=(2, 2))
 ```
 
 The backend module is imported lazily. If the requested library is missing,
