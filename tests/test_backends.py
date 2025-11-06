@@ -76,6 +76,10 @@ def backend_case(request):
 
     if name == "cupy":
         cp = pytest.importorskip("cupy")
+        try:
+            cp.cuda.runtime.getDeviceCount()
+        except cp.cuda.runtime.CUDARuntimeError as exc:
+            pytest.skip(f"CuPy runtime unavailable: {exc}")
 
         def new_backend(seed):
             return CuPyBackend(seed=seed, generator=None)
@@ -149,6 +153,21 @@ def test_backend_random_normal_choice(backend_case):
     clone_rand = clone.random(size=(2, 2), dtype=backend_case["dtype64"])
     backend_case["assert_close"](rand, clone_rand)
 
+    uniform = backend.uniform(
+        low=-1.0,
+        high=1.0,
+        size=(2, 2),
+        dtype=backend_case["dtype32"],
+    )
+    backend_case["assert_array"](uniform, (2, 2), backend_case["dtype32"])
+    clone_uniform = clone.uniform(
+        low=-1.0,
+        high=1.0,
+        size=(2, 2),
+        dtype=backend_case["dtype32"],
+    )
+    backend_case["assert_close"](uniform, clone_uniform)
+
     normal = backend.normal(
         loc=0.0,
         scale=1.0,
@@ -177,6 +196,14 @@ def test_array_rng_integration_per_backend(backend_case):
     rand_b = rng_b.random(size=(2, 2), dtype=backend_case["dtype64"])
     backend_case["assert_array"](rand_a, (2, 2), backend_case["dtype64"])
     backend_case["assert_close"](rand_a, rand_b)
+
+    uniform = rng_a.uniform(
+        low=0.0,
+        high=5.0,
+        size=3,
+        dtype=backend_case["dtype32"],
+    )
+    backend_case["assert_array"](uniform, (3,), backend_case["dtype32"])
 
     normal = rng_a.normal(
         loc=0.0,

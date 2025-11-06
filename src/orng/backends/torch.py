@@ -53,6 +53,34 @@ class TorchBackend:
             dtype=dtype,
         )
 
+    def uniform(
+        self,
+        *,
+        low: Any,
+        high: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> Any:
+        shape = normalize_shape(size)
+        dtype = dtype if dtype is not None else self._torch.float32
+        sample_shape = shape if shape else (1,)
+        base = self._torch.rand(
+            sample_shape,
+            generator=self._generator,
+            device=self._device,
+            dtype=dtype,
+        )
+        low_tensor = self._torch.as_tensor(
+            low, device=self._device, dtype=dtype
+        )
+        high_tensor = self._torch.as_tensor(
+            high, device=self._device, dtype=dtype
+        )
+        result = low_tensor + (high_tensor - low_tensor) * base
+        if not shape:
+            return result[0]
+        return result
+
     def normal(
         self,
         *,
