@@ -42,6 +42,10 @@ def test_array_rng_delegates_to_backends(monkeypatch):
             self.calls.append(("random", size, dtype))
             return ("random", size, dtype, self.seed)
 
+        def uniform(self, *, low, high, size, dtype):
+            self.calls.append(("uniform", low, high, size, dtype))
+            return ("uniform", low, high, size, dtype, self.seed)
+
         def normal(self, *, loc, scale, size, dtype):
             self.calls.append(("normal", loc, scale, size, dtype))
             return ("normal", loc, scale, size, dtype, self.seed)
@@ -79,11 +83,20 @@ def test_array_rng_delegates_to_backends(monkeypatch):
     assert random_result == ("random", 5, "float32", 7)
     assert backend.calls[0] == ("random", 5, "float32")
 
+    uniform_result = rng.uniform(
+        low=-1.0,
+        high=2.0,
+        size=(1, 2),
+        dtype="float16",
+    )
+    assert uniform_result == ("uniform", -1.0, 2.0, (1, 2), "float16", 7)
+    assert backend.calls[1] == ("uniform", -1.0, 2.0, (1, 2), "float16")
+
     normal_result = rng.normal(
         loc=1.5, scale=2.0, size=(2, 2), dtype="float64"
     )
     assert normal_result == ("normal", 1.5, 2.0, (2, 2), "float64", 7)
-    assert backend.calls[1] == ("normal", 1.5, 2.0, (2, 2), "float64")
+    assert backend.calls[2] == ("normal", 1.5, 2.0, (2, 2), "float64")
 
     choice_result = rng.choice(
         ["a", "b"],
@@ -92,7 +105,7 @@ def test_array_rng_delegates_to_backends(monkeypatch):
         p=[0.4, 0.6],
     )
     assert choice_result == ("choice", ["a", "b"], 1, False, [0.4, 0.6], 7)
-    assert backend.calls[2] == (
+    assert backend.calls[3] == (
         "choice",
         ["a", "b"],
         1,
