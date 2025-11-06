@@ -29,6 +29,21 @@ class CuPyBackend:
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any:
         return self._generator.random(size=size, dtype=dtype)
 
+    def uniform(
+        self,
+        *,
+        low: Any,
+        high: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> Any:
+        return self._generator.uniform(
+            low=low,
+            high=high,
+            size=size,
+            dtype=dtype,
+        )
+
     def normal(
         self,
         *,

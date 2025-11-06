@@ -9,6 +9,11 @@ class JAXBackend:
     def __init__(self, *, seed: int | None, key: Any | None) -> None:
         try:
             import jax
+            from jax import config as jax_config
+
+            if not getattr(jax_config, "x64_enabled", False):
+                jax_config.update("jax_enable_x64", True)
+
             import jax.numpy as jnp
         except ImportError as exc:  # pragma: no cover - optional dependency
             raise ImportError(
@@ -48,6 +53,35 @@ class JAXBackend:
             shape=(1,),
             minval=low,
             maxval=high,
+            dtype=dtype,
+        )[0]
+
+    def uniform(
+        self,
+        *,
+        low: Any,
+        high: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> Any:
+        key = self._next_key()
+        shape = normalize_shape(size)
+        dtype = dtype if dtype is not None else self._jnp.float32
+        low_arr = self._jnp.asarray(low, dtype=dtype)
+        high_arr = self._jnp.asarray(high, dtype=dtype)
+        if shape:
+            return self._jax.random.uniform(
+                key,
+                shape=shape,
+                minval=low_arr,
+                maxval=high_arr,
+                dtype=dtype,
+            )
+        return self._jax.random.uniform(
+            key,
+            shape=(1,),
+            minval=low_arr,
+            maxval=high_arr,
             dtype=dtype,
         )[0]
 

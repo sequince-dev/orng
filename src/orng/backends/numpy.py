@@ -28,6 +28,25 @@ class NumPyBackend:
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any:
         return self._generator.random(size=size, dtype=dtype)
 
+    def uniform(
+        self,
+        *,
+        low: Any,
+        high: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> Any:
+        result = self._generator.uniform(
+            low=low,
+            high=high,
+            size=size,
+        )
+        if dtype is not None:
+            import numpy as np
+
+            return np.asarray(result, dtype=dtype)
+        return result
+
     def normal(
         self,
         *,

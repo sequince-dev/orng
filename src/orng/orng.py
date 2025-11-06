@@ -19,6 +19,15 @@ class RNGBackend(Protocol):
 
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any: ...
 
+    def uniform(
+        self,
+        *,
+        low: Any,
+        high: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> Any: ...
+
     def normal(
         self,
         *,
@@ -88,6 +97,22 @@ class ArrayRNG:
     ) -> Any:
         """Draw samples from ``Uniform[0, 1)``."""
         return self._impl.random(size=size, dtype=dtype)
+
+    def uniform(
+        self,
+        low: Any = 0.0,
+        high: Any = 1.0,
+        size: SizeLike = None,
+        *,
+        dtype: Any | None = None,
+    ) -> Any:
+        """Draw samples from ``Uniform[low, high)``."""
+        return self._impl.uniform(
+            low=low,
+            high=high,
+            size=size,
+            dtype=dtype,
+        )
 
     def normal(
         self,
