@@ -50,6 +50,10 @@ def test_array_rng_delegates_to_backends(monkeypatch):
             self.calls.append(("normal", loc, scale, size, dtype))
             return ("normal", loc, scale, size, dtype, self.seed)
 
+        def gamma(self, *, shape, scale, size, dtype):
+            self.calls.append(("gamma", shape, scale, size, dtype))
+            return ("gamma", shape, scale, size, dtype, self.seed)
+
         def choice(self, population, *, size, replace, probabilities):
             self.calls.append(
                 ("choice", population, size, replace, probabilities)
@@ -98,6 +102,15 @@ def test_array_rng_delegates_to_backends(monkeypatch):
     assert normal_result == ("normal", 1.5, 2.0, (2, 2), "float64", 7)
     assert backend.calls[2] == ("normal", 1.5, 2.0, (2, 2), "float64")
 
+    gamma_result = rng.gamma(
+        shape=2.0,
+        scale=3.0,
+        size=(4,),
+        dtype="float32",
+    )
+    assert gamma_result == ("gamma", 2.0, 3.0, (4,), "float32", 7)
+    assert backend.calls[3] == ("gamma", 2.0, 3.0, (4,), "float32")
+
     choice_result = rng.choice(
         ["a", "b"],
         size=1,
@@ -105,7 +118,7 @@ def test_array_rng_delegates_to_backends(monkeypatch):
         p=[0.4, 0.6],
     )
     assert choice_result == ("choice", ["a", "b"], 1, False, [0.4, 0.6], 7)
-    assert backend.calls[3] == (
+    assert backend.calls[4] == (
         "choice",
         ["a", "b"],
         1,
@@ -130,6 +143,9 @@ def test_array_rng_forwards_generator_to_jax(monkeypatch):
             return None
 
         def normal(self, *, loc, scale, size, dtype):
+            return None
+
+        def gamma(self, *, shape, scale, size, dtype):
             return None
 
         def choice(self, population, *, size, replace, probabilities):

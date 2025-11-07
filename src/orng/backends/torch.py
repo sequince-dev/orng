@@ -107,6 +107,46 @@ class TorchBackend:
         )
         return base * scale + loc
 
+    def gamma(
+        self,
+        *,
+        shape: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> Any:
+        sample_shape = normalize_shape(size)
+        torch = self._torch
+        dtype = dtype if dtype is not None else torch.float32
+        concentration = torch.as_tensor(
+            shape,
+            device=self._device,
+            dtype=dtype,
+        )
+        scale_tensor = torch.as_tensor(
+            scale,
+            device=self._device,
+            dtype=dtype,
+        )
+        concentration, scale_tensor = torch.broadcast_tensors(
+            concentration, scale_tensor
+        )
+        if torch.any(concentration <= 0):
+            raise ValueError("shape parameters for gamma must be positive.")
+        if sample_shape:
+            prefix = (None,) * len(sample_shape)
+            concentration = concentration[prefix].expand(
+                sample_shape + concentration.shape
+            )
+            scale_tensor = scale_tensor[prefix].expand(
+                sample_shape + scale_tensor.shape
+            )
+        samples = torch._standard_gamma(
+            concentration, generator=self._generator
+        )
+        scaled = samples * scale_tensor
+        return scaled
+
     def choice(
         self,
         population: int | Any,

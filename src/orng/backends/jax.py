@@ -110,6 +110,39 @@ class JAXBackend:
             )[0]
         return standard * scale + loc
 
+    def gamma(
+        self,
+        *,
+        shape: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> Any:
+        key = self._next_key()
+        sample_shape = normalize_shape(size)
+        dtype = dtype if dtype is not None else self._jnp.float32
+        concentration = self._jnp.asarray(shape, dtype=dtype)
+        scale_arr = self._jnp.asarray(scale, dtype=dtype)
+        # Handle broadcasting of shape and scale
+        if sample_shape:
+            draw_shape = sample_shape + self._jnp.shape(concentration)
+        else:
+            draw_shape = self._jnp.shape(concentration)
+        gamma_samples = self._jax.random.gamma(
+            key,
+            concentration,
+            shape=draw_shape,
+            dtype=dtype,
+        )
+        scaled = gamma_samples * scale_arr
+        if (
+            not sample_shape
+            and self._jnp.ndim(scale) == 0
+            and self._jnp.ndim(shape) == 0
+        ):
+            return scaled[0]
+        return scaled
+
     def choice(
         self,
         population: int | Any,
