@@ -262,6 +262,12 @@ def test_array_rng_gamma(rng):
     x = rng.gamma(shape=2.0, scale=2.0, size=(6, 2))
     assert x.shape == (6, 2)
 
+    x = rng.gamma(shape=[1.0, 2.0, 3.0], scale=1.0)
+    assert x.shape == (3,)
+
+    x = rng.gamma(shape=2.0, scale=[1.0, 2.0, 3.0])
+    assert x.shape == (3,)
+
 
 def test_array_rng_choice(rng):
     x = rng.choice([10, 20, 30], size=(3, 3), replace=True)
