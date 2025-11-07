@@ -123,7 +123,11 @@ class JAXBackend:
         dtype = dtype if dtype is not None else self._jnp.float32
         concentration = self._jnp.asarray(shape, dtype=dtype)
         scale_arr = self._jnp.asarray(scale, dtype=dtype)
-        draw_shape = sample_shape if sample_shape else (1,)
+        # Handle broadcasting of shape and scale
+        if sample_shape:
+            draw_shape = sample_shape + self._jnp.shape(concentration)
+        else:
+            draw_shape = self._jnp.shape(concentration)
         gamma_samples = self._jax.random.gamma(
             key,
             concentration,
@@ -131,7 +135,11 @@ class JAXBackend:
             dtype=dtype,
         )
         scaled = gamma_samples * scale_arr
-        if not sample_shape:
+        if (
+            not sample_shape
+            and self._jnp.ndim(scale) == 0
+            and self._jnp.ndim(shape) == 0
+        ):
             return scaled[0]
         return scaled
 
