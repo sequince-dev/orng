@@ -7,6 +7,7 @@ generators. It mirrors the subset of the `numpy.random.Generator` API:
 - `uniform`
 - `normal`
 - `choice`
+- `gamma`
 
 letting you pick the underlying backend at runtime. The following backends are
 currently supported:
