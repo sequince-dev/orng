@@ -59,6 +59,23 @@ class CuPyBackend:
             dtype=dtype,
         )
 
+    def gamma(
+        self,
+        *,
+        shape: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> Any:
+        result = self._generator.gamma(
+            shape=shape,
+            scale=scale,
+            size=size,
+        )
+        if dtype is not None:
+            return self._cupy.asarray(result, dtype=dtype)
+        return result
+
     def choice(
         self,
         population: int | Any,

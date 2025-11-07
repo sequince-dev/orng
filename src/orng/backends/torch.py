@@ -107,6 +107,44 @@ class TorchBackend:
         )
         return base * scale + loc
 
+    def gamma(
+        self,
+        *,
+        shape: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> Any:
+        sample_shape = normalize_shape(size)
+        torch = self._torch
+        dtype = dtype if dtype is not None else torch.float32
+        concentration = torch.as_tensor(
+            shape,
+            device=self._device,
+            dtype=dtype,
+        )
+        scale_tensor = torch.as_tensor(
+            scale,
+            device=self._device,
+            dtype=dtype,
+        )
+        concentration, scale_tensor = torch.broadcast_tensors(
+            concentration, scale_tensor
+        )
+        if torch.any(concentration <= 0):
+            raise ValueError("shape parameters for gamma must be positive.")
+        if sample_shape:
+            prefix = (None,) * len(sample_shape)
+            concentration = concentration[prefix].expand(
+                sample_shape + concentration.shape
+            )
+            scale_tensor = scale_tensor[prefix].expand(
+                sample_shape + scale_tensor.shape
+            )
+        samples = self._gamma_standard(concentration)
+        scaled = samples * scale_tensor
+        return scaled
+
     def choice(
         self,
         population: int | Any,
@@ -173,6 +211,78 @@ class TorchBackend:
         if not shape:
             return draws[0]
         return draws.reshape(shape)
+
+    # Internal helpers ---------------------------------------------------------
+
+    def _gamma_standard(self, concentration_tensor):
+        torch = self._torch
+        flat_concentration = concentration_tensor.reshape(-1)
+        result = torch.empty_like(flat_concentration)
+        mask_ge_one = flat_concentration >= 1
+        mask_lt_one = ~mask_ge_one
+
+        if torch.any(mask_ge_one):
+            result[mask_ge_one] = self._gamma_shape_ge_one(
+                flat_concentration[mask_ge_one]
+            )
+        if torch.any(mask_lt_one):
+            conc = flat_concentration[mask_lt_one]
+            adjusted = conc + 1.0
+            base = self._gamma_shape_ge_one(adjusted)
+            u = torch.rand(
+                conc.shape,
+                generator=self._generator,
+                device=self._device,
+                dtype=flat_concentration.dtype,
+            )
+            result[mask_lt_one] = base * u.pow(1.0 / conc)
+
+        return result.reshape(concentration_tensor.shape)
+
+    def _gamma_shape_ge_one(self, concentration):
+        torch = self._torch
+        dtype = concentration.dtype
+        result = torch.empty_like(concentration)
+        d = concentration - 1.0 / 3.0
+        c = 1.0 / torch.sqrt(9.0 * d)
+        done = torch.zeros_like(concentration, dtype=torch.bool)
+
+        while True:
+            pending = ~done
+            if not torch.any(pending):
+                break
+            pending_size = int(pending.sum().item())
+            x = torch.randn(
+                (pending_size,),
+                generator=self._generator,
+                device=self._device,
+                dtype=dtype,
+            )
+            d_pending = d[pending]
+            c_pending = c[pending]
+            v = (1.0 + c_pending * x) ** 3
+            u = torch.rand(
+                (pending_size,),
+                generator=self._generator,
+                device=self._device,
+                dtype=dtype,
+            )
+            positive = v > 0
+            log_v = torch.zeros_like(v)
+            if torch.any(positive):
+                log_v[positive] = torch.log(v[positive])
+            cond = (u < 1 - 0.331 * (x**4)) | (
+                torch.log(u) < 0.5 * x**2 + d_pending * (1 - v + log_v)
+            )
+            accept = positive & cond
+            if not torch.any(accept):
+                continue
+            pending_indices = pending.nonzero(as_tuple=False).squeeze(-1)
+            selected = pending_indices[accept]
+            result[selected] = d[selected] * v[accept]
+            done[selected] = True
+
+        return result
 
 
 __all__ = ["TorchBackend"]

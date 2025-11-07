@@ -37,6 +37,15 @@ class RNGBackend(Protocol):
         dtype: Any | None,
     ) -> Any: ...
 
+    def gamma(
+        self,
+        *,
+        shape: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> Any: ...
+
     def choice(
         self,
         population: int | Any,
@@ -125,6 +134,22 @@ class ArrayRNG:
         """Draw samples from a normal distribution."""
         return self._impl.normal(
             loc=loc,
+            scale=scale,
+            size=size,
+            dtype=dtype,
+        )
+
+    def gamma(
+        self,
+        shape: Any,
+        scale: Any = 1.0,
+        size: SizeLike = None,
+        *,
+        dtype: Any | None = None,
+    ) -> Any:
+        """Draw samples from a gamma distribution."""
+        return self._impl.gamma(
+            shape=shape,
             scale=scale,
             size=size,
             dtype=dtype,
