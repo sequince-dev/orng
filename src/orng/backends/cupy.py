@@ -52,12 +52,12 @@ class CuPyBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        return self._generator.normal(
-            loc=loc,
-            scale=scale,
+        standard = self._generator.standard_normal(
             size=size,
             dtype=dtype,
         )
+        result = loc + standard * scale
+        return result
 
     def gamma(
         self,
