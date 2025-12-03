@@ -84,12 +84,56 @@ class CuPyBackend:
         replace: bool,
         probabilities: Any | None,
     ) -> Any:
-        return self._generator.choice(
-            population,
-            size=size,
-            replace=replace,
-            p=probabilities,
-        )
+        # CuPy's Generator lacks choice, so we implement the core semantics.
+        cp = self._cupy
+        gen = self._generator
+
+        if isinstance(population, int):
+            n = population
+            values = None
+        else:
+            values = cp.asarray(population)
+            n = values.shape[0]
+
+        target_size = size if size is not None else ()
+
+        probs = None
+        if probabilities is not None:
+            probs = cp.asarray(probabilities, dtype=cp.float64)
+            probs = probs / cp.sum(probs)
+
+        if replace:
+            if probs is None:
+                indices = gen.integers(0, n, size=target_size)
+            else:
+                # Inverse-CDF sampling: draw U(0,1) then locate within the CDF.
+                cdf = cp.cumsum(probs)
+                draws = gen.random(size=target_size)
+                indices = cp.searchsorted(cdf, draws)
+        else:
+            flat_k = (
+                1
+                if target_size == ()
+                else int(cp.prod(cp.asarray(target_size)))
+            )
+            if probs is None:
+                indices = gen.permutation(n)[:flat_k]
+            else:
+                # Gumbel-top-k trick for weighted sampling without replacement.
+                # Ref: https://arxiv.org/abs/1611.00712 (Gumbel-Softmax).
+                # Inverse CDF for Gumbel: -log(-log(U)), U~Uniform(0,1)
+                gumbels = -cp.log(-cp.log(gen.random(n)))
+                keys = cp.log(probs) + gumbels
+                # Select the top-k keys
+                indices = cp.argpartition(keys, -flat_k)[-flat_k:]
+            if target_size != ():
+                indices = cp.reshape(indices, target_size)
+            else:
+                indices = indices[0]
+
+        if values is None:
+            return indices
+        return values[indices]
 
 
 __all__ = ["CuPyBackend"]
