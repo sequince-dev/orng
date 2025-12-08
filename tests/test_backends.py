@@ -273,3 +273,36 @@ def test_array_rng_choice(rng):
     x = rng.choice([10, 20, 30], size=(3, 3), replace=True)
     assert x.shape == (3, 3)
     assert all(v in [10, 20, 30] for v in x.flatten())
+
+
+def test_cupy_choice_with_probabilities_and_no_replacement():
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.cuda.runtime.getDeviceCount()
+    except (ImportError, cp.cuda.runtime.CUDARuntimeError) as exc:
+        pytest.skip(f"CuPy runtime unavailable: {exc}")
+
+    backend = CuPyBackend(seed=123, generator=None)
+
+    values = cp.array([1, 2, 3, 4], dtype=cp.int32)
+    probs = cp.array([0.7, 0.1, 0.1, 0.1], dtype=cp.float32)
+
+    draws = backend.choice(
+        values,
+        size=(2, 3),
+        replace=True,
+        probabilities=probs,
+    )
+    assert isinstance(draws, cp.ndarray)
+    assert draws.shape == (2, 3)
+    assert cp.isin(draws, values).all()
+
+    without_replacement = backend.choice(
+        values,
+        size=(3,),
+        replace=False,
+        probabilities=None,
+    )
+    assert isinstance(without_replacement, cp.ndarray)
+    assert without_replacement.shape == (3,)
+    assert cp.unique(without_replacement).size == 3
