@@ -68,6 +68,16 @@ state, y = backend.uniform(state, low=-1.0, high=1.0, size=(2, 2), dtype=None)
 Every sampling call takes an explicit `state` and returns
 `(next_state, sample)`. This avoids mutable RNG objects inside compiled code.
 
+By default this API is pure (`pure=True`) and snapshots RNG state each call on
+stateful backends. For lower overhead on NumPy/Torch/CuPy, you can opt into a
+trusted mutable fast path:
+
+```python
+backend = create_functional_backend("numpy", pure=False)
+state = backend.init_state(seed=42, generator=None)  # numpy.random.Generator
+state, x = backend.normal(state, loc=0.0, scale=1.0, size=(4,), dtype=None)
+```
+
 Supported functional methods:
 
 - `random`
