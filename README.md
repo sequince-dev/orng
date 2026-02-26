@@ -50,6 +50,66 @@ The backend module is imported lazily. If the requested library is missing,
 `ArrayRNG` will raise an informative `ImportError` that points to the matching
 extra.
 
+## Functional Backend API
+
+For JAX and other functional workflows, `orng` also provides a pure API in
+`orng.functional`:
+
+```python
+from orng.functional import create_functional_backend
+
+backend = create_functional_backend("numpy")
+state = backend.init_state(seed=42, generator=None)
+
+state, x = backend.normal(state, loc=0.0, scale=1.0, size=(4,), dtype=None)
+state, y = backend.uniform(state, low=-1.0, high=1.0, size=(2, 2), dtype=None)
+```
+
+Every sampling call takes an explicit `state` and returns
+`(next_state, sample)`. This avoids mutable RNG objects inside compiled code.
+
+Supported functional methods:
+
+- `random`
+- `uniform`
+- `normal`
+- `choice`
+- `gamma`
+
+### JAX Compilation Example
+
+```python
+import jax
+import jax.numpy as jnp
+from orng.functional import create_functional_backend
+
+backend = create_functional_backend("jax")
+state = backend.init_state(seed=0, generator=None)
+
+@jax.jit
+def step(key):
+    next_key, sample = backend.normal(
+        key, loc=0.0, scale=1.0, size=(8,), dtype=jnp.float32
+    )
+    return next_key, sample
+
+state, sample = step(state)
+```
+
+### Functional State Reference
+
+`init_state(seed=..., generator=...)` expects backend-specific generator
+inputs:
+
+| Backend | Generator argument |
+|---------|--------------------|
+| `numpy` | `numpy.random.Generator` |
+| `torch` | `torch.Generator` |
+| `cupy`  | `cupy.random.Generator` |
+| `jax`   | `jax.random.KeyArray` (from `jax.random.key`) |
+
+If `generator=None`, a new backend-specific state is created from `seed`.
+
 ### Backend State Reference
 
 When you pass the optional `generator` argument to `ArrayRNG`, the expected
