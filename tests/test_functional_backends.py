@@ -198,3 +198,15 @@ def test_jax_functional_backend_explicit_compile():
     assert sample.shape == (4,)
     assert sample.dtype == jnp.float32
     assert not bool(jnp.array_equal(next_state, state))
+
+
+def test_numpy_functional_backend_fast_state_skips_copying():
+    np = pytest.importorskip("numpy")
+
+    backend = create_functional_backend("numpy", pure=False)
+    state = backend.init_state(seed=123, generator=None)
+    assert isinstance(state, np.random.Generator)
+
+    next_state, sample = backend.random(state, size=(3,), dtype=np.float32)
+    assert next_state is state
+    assert sample.shape == (3,)
