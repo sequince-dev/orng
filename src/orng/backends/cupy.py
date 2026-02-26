@@ -138,7 +138,7 @@ class CuPyBackend:
 
 
 class CuPyFunctionalBackend:
-    def __init__(self) -> None:
+    def __init__(self, *, pure: bool = True) -> None:
         try:
             import cupy as cp
         except ImportError as exc:  # pragma: no cover - optional dependency
@@ -147,6 +147,7 @@ class CuPyFunctionalBackend:
                 "Install it with `pip install orng[cupy]`."
             ) from exc
         self._cupy = cp
+        self._pure = pure
 
     def init_state(self, *, seed: int | None, generator: Any | None) -> Any:
         cp = self._cupy
@@ -159,15 +160,25 @@ class CuPyFunctionalBackend:
                 "generator must be a cupy.random.Generator when using the "
                 "CuPy backend."
             )
-        return copy.deepcopy(gen.bit_generator.state)
+        if self._pure:
+            return copy.deepcopy(gen.bit_generator.state)
+        return gen
 
     def _generator_from_state(self, state: Any) -> Any:
+        if not self._pure:
+            if not isinstance(state, self._cupy.random.Generator):
+                raise TypeError(
+                    "state must be a cupy.random.Generator when pure=False."
+                )
+            return state
         gen = self._cupy.random.default_rng()
         gen.bit_generator.state = copy.deepcopy(state)
         return gen
 
     def _next_state_and_result(self, gen: Any, result: Any) -> tuple[Any, Any]:
-        return copy.deepcopy(gen.bit_generator.state), result
+        if self._pure:
+            return copy.deepcopy(gen.bit_generator.state), result
+        return gen, result
 
     def random(
         self,

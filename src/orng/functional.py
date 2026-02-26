@@ -70,11 +70,19 @@ FunctionalFactory = Callable[..., FunctionalBackend]
 
 
 _FUNCTIONAL_FACTORIES: Dict[str, FunctionalFactory] = {
-    "numpy": lambda *, device=None: NumPyFunctionalBackend(),
-    "cupy": lambda *, device=None: CuPyFunctionalBackend(),
-    "torch": lambda *, device=None: TorchFunctionalBackend(device=device),
-    "pytorch": lambda *, device=None: TorchFunctionalBackend(device=device),
-    "jax": lambda *, device=None: JAXFunctionalBackend(),
+    "numpy": lambda *, device=None, pure=True: NumPyFunctionalBackend(
+        pure=pure
+    ),
+    "cupy": lambda *, device=None, pure=True: CuPyFunctionalBackend(pure=pure),
+    "torch": lambda *, device=None, pure=True: TorchFunctionalBackend(
+        device=device,
+        pure=pure,
+    ),
+    "pytorch": lambda *, device=None, pure=True: TorchFunctionalBackend(
+        device=device,
+        pure=pure,
+    ),
+    "jax": lambda *, device=None, pure=True: JAXFunctionalBackend(),
 }
 
 
@@ -82,6 +90,7 @@ def create_functional_backend(
     name: str,
     *,
     device: Any | None = None,
+    pure: bool = True,
 ) -> FunctionalBackend:
     try:
         factory = _FUNCTIONAL_FACTORIES[name.lower()]
@@ -92,7 +101,7 @@ def create_functional_backend(
         raise ValueError(
             f"Unsupported backend '{name}'. Expected one of '{supported}'."
         ) from exc
-    return factory(device=device)
+    return factory(device=device, pure=pure)
 
 
 __all__ = [

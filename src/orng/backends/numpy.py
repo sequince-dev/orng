@@ -103,7 +103,7 @@ class NumPyBackend:
 
 
 class NumPyFunctionalBackend:
-    def __init__(self) -> None:
+    def __init__(self, *, pure: bool = True) -> None:
         try:
             import numpy as np
         except ImportError as exc:  # pragma: no cover - optional dependency
@@ -112,6 +112,7 @@ class NumPyFunctionalBackend:
                 "Install it with `pip install orng[numpy]`."
             ) from exc
         self._np = np
+        self._pure = pure
 
     def init_state(self, *, seed: int | None, generator: Any | None) -> Any:
         np = self._np
@@ -124,15 +125,25 @@ class NumPyFunctionalBackend:
                 "generator must be a numpy.random.Generator when using the "
                 "NumPy backend."
             )
-        return copy.deepcopy(gen.bit_generator.state)
+        if self._pure:
+            return copy.deepcopy(gen.bit_generator.state)
+        return gen
 
     def _generator_from_state(self, state: Any) -> Any:
+        if not self._pure:
+            if not isinstance(state, self._np.random.Generator):
+                raise TypeError(
+                    "state must be a numpy.random.Generator when pure=False."
+                )
+            return state
         gen = self._np.random.default_rng()
         gen.bit_generator.state = copy.deepcopy(state)
         return gen
 
     def _next_state_and_result(self, gen: Any, result: Any) -> tuple[Any, Any]:
-        return copy.deepcopy(gen.bit_generator.state), result
+        if self._pure:
+            return copy.deepcopy(gen.bit_generator.state), result
+        return gen, result
 
     def random(
         self,
