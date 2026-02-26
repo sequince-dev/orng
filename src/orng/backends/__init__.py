@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict
 
+from ..functional import create_functional_backend
 from .cupy import CuPyBackend
 from .jax import JAXBackend
 from .numpy import NumPyBackend
@@ -54,4 +55,4 @@ def create_backend(
     return factory(seed=seed, generator=generator, device=device)
 
 
-__all__ = ["create_backend"]
+__all__ = ["create_backend", "create_functional_backend"]

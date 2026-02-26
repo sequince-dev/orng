@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from .._utils import SizeLike
@@ -136,4 +137,146 @@ class CuPyBackend:
         return values[indices]
 
 
-__all__ = ["CuPyBackend"]
+class CuPyFunctionalBackend:
+    def __init__(self) -> None:
+        try:
+            import cupy as cp
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise ImportError(
+                "CuPy backend requires the 'cupy' package to be installed. "
+                "Install it with `pip install orng[cupy]`."
+            ) from exc
+        self._cupy = cp
+
+    def init_state(self, *, seed: int | None, generator: Any | None) -> Any:
+        cp = self._cupy
+        if generator is None:
+            gen = cp.random.default_rng(seed)
+        elif isinstance(generator, cp.random.Generator):
+            gen = generator
+        else:
+            raise TypeError(
+                "generator must be a cupy.random.Generator when using the "
+                "CuPy backend."
+            )
+        return copy.deepcopy(gen.bit_generator.state)
+
+    def _generator_from_state(self, state: Any) -> Any:
+        gen = self._cupy.random.default_rng()
+        gen.bit_generator.state = copy.deepcopy(state)
+        return gen
+
+    def _next_state_and_result(self, gen: Any, result: Any) -> tuple[Any, Any]:
+        return copy.deepcopy(gen.bit_generator.state), result
+
+    def random(
+        self,
+        state: Any,
+        *,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        result = gen.random(size=size, dtype=dtype)
+        return self._next_state_and_result(gen, result)
+
+    def uniform(
+        self,
+        state: Any,
+        *,
+        low: Any,
+        high: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        result = gen.uniform(low=low, high=high, size=size, dtype=dtype)
+        return self._next_state_and_result(gen, result)
+
+    def normal(
+        self,
+        state: Any,
+        *,
+        loc: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        standard = gen.standard_normal(size=size, dtype=dtype)
+        result = loc + standard * scale
+        return self._next_state_and_result(gen, result)
+
+    def gamma(
+        self,
+        state: Any,
+        *,
+        shape: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        result = gen.gamma(shape=shape, scale=scale, size=size)
+        if dtype is not None:
+            result = self._cupy.asarray(result, dtype=dtype)
+        return self._next_state_and_result(gen, result)
+
+    def choice(
+        self,
+        state: Any,
+        population: int | Any,
+        *,
+        size: SizeLike,
+        replace: bool,
+        probabilities: Any | None,
+    ) -> tuple[Any, Any]:
+        cp = self._cupy
+        gen = self._generator_from_state(state)
+
+        if isinstance(population, int):
+            n = population
+            values = None
+        else:
+            values = cp.asarray(population)
+            n = values.shape[0]
+
+        target_size = size if size is not None else ()
+
+        probs = None
+        if probabilities is not None:
+            probs = cp.asarray(probabilities, dtype=cp.float64)
+            probs = probs / cp.sum(probs)
+
+        if replace:
+            if probs is None:
+                indices = gen.integers(0, n, size=target_size)
+            else:
+                cdf = cp.cumsum(probs)
+                draws = gen.random(size=target_size)
+                indices = cp.searchsorted(cdf, draws)
+        else:
+            flat_k = (
+                1
+                if target_size == ()
+                else int(cp.prod(cp.asarray(target_size)))
+            )
+            if probs is None:
+                indices = gen.permutation(n)[:flat_k]
+            else:
+                gumbels = -cp.log(-cp.log(gen.random(n)))
+                keys = cp.log(probs) + gumbels
+                indices = cp.argpartition(keys, -flat_k)[-flat_k:]
+            if target_size != ():
+                indices = cp.reshape(indices, target_size)
+            else:
+                indices = indices[0]
+
+        if values is None:
+            result = indices
+        else:
+            result = values[indices]
+        return self._next_state_and_result(gen, result)
+
+
+__all__ = ["CuPyBackend", "CuPyFunctionalBackend"]
