@@ -111,18 +111,35 @@ state, sample = step(state)
 
 ### Functional State Reference
 
-`init_state(seed=..., generator=...)` expects backend-specific generator
+The functional API follows the native conventions of each backend rather than
+introducing a wrapper state type.
+
+`init_state(seed=..., generator=...)` accepts backend-specific generator
 inputs:
 
-| Backend | Generator argument |
-|---------|--------------------|
+| Backend | `generator` argument |
+|---------|----------------------|
 | `numpy` | `numpy.random.Generator` |
 | `torch` | `torch.Generator` |
 | `cupy`  | `cupy.random.Generator` |
-| `jax`   | `jax.random.KeyArray` (from `jax.random.key`) |
+| `jax`   | JAX PRNG key array, typically from `jax.random.key(...)` |
 
-If `generator=None`, a new backend-specific state is created from `seed`.
-If `seed=None`, a fresh backend-specific random seed is used.
+If `generator=None`, ORNG creates a new backend-native state from `seed`. If
+`seed=None`, the backend chooses a fresh random seed using its usual behavior.
+
+The `state` value passed into `random`, `uniform`, `normal`, `choice`, and
+`gamma` also matches the backend:
+
+| Backend | `pure=True` state | `pure=False` state |
+|---------|-------------------|--------------------|
+| `numpy` | NumPy bit-generator state `dict` | `numpy.random.Generator` |
+| `torch` | `TorchFunctionalState` | `torch.Generator` |
+| `cupy`  | CuPy bit-generator state `dict` | `cupy.random.Generator` |
+| `jax`   | JAX PRNG key array | not supported |
+
+For example, NumPy in pure mode snapshots and returns a bit-generator state
+dictionary each call, while `pure=False` threads a `numpy.random.Generator`
+through the same functional interface. JAX always uses and returns a PRNG key.
 
 ### Backend State Reference
 
