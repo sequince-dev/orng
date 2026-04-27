@@ -68,15 +68,18 @@ state, y = backend.uniform(state, low=-1.0, high=1.0, size=(2, 2), dtype=None)
 Every sampling call takes an explicit `state` and returns
 `(next_state, sample)`. This avoids mutable RNG objects inside compiled code.
 
-By default this API is pure (`pure=True`) and snapshots RNG state each call on
-stateful backends. For lower overhead on NumPy/Torch/CuPy, you can opt into a
-trusted mutable fast path:
+By default this API is pure (`pure=True`). On stateful backends (`numpy`,
+`torch`, and `cupy`) this snapshots RNG state each call. For lower overhead on
+those backends, you can opt into a trusted mutable fast path with
+`pure=False`:
 
 ```python
 backend = create_functional_backend("numpy", pure=False)
 state = backend.init_state(seed=42, generator=None)  # numpy.random.Generator
 state, x = backend.normal(state, loc=0.0, scale=1.0, size=(4,), dtype=None)
 ```
+
+The JAX functional backend is always pure and does not support `pure=False`.
 
 Supported functional methods:
 
@@ -119,6 +122,7 @@ inputs:
 | `jax`   | `jax.random.KeyArray` (from `jax.random.key`) |
 
 If `generator=None`, a new backend-specific state is created from `seed`.
+If `seed=None`, a fresh backend-specific random seed is used.
 
 ### Backend State Reference
 
