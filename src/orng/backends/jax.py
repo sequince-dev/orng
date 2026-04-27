@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 from typing import Any
 
 from .._utils import SizeLike, normalize_shape
@@ -91,11 +92,6 @@ class JAXFunctionalBackend:
     def __init__(self) -> None:
         try:
             import jax
-            from jax import config as jax_config
-
-            if not getattr(jax_config, "x64_enabled", False):
-                jax_config.update("jax_enable_x64", True)
-
             import jax.numpy as jnp
         except ImportError as exc:  # pragma: no cover - optional dependency
             raise ImportError(
@@ -110,12 +106,8 @@ class JAXFunctionalBackend:
         if generator is not None:
             return generator
         if seed is None:
-            seed = 0
+            seed = secrets.randbits(32)
         return self._jax.random.key(seed)
-
-    def _split(self, state: Any) -> tuple[Any, Any]:
-        draw_key, next_state = self._jax.random.split(state)
-        return draw_key, next_state
 
     def random(
         self,
@@ -124,7 +116,7 @@ class JAXFunctionalBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> tuple[Any, Any]:
-        key, next_state = self._split(state)
+        key, next_state = self._jax.random.split(state)
         shape = normalize_shape(size)
         sample_dtype = dtype if dtype is not None else self._jnp.float32
         low = self._jnp.array(0.0, dtype=sample_dtype)
@@ -156,7 +148,7 @@ class JAXFunctionalBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> tuple[Any, Any]:
-        key, next_state = self._split(state)
+        key, next_state = self._jax.random.split(state)
         shape = normalize_shape(size)
         sample_dtype = dtype if dtype is not None else self._jnp.float32
         low_arr = self._jnp.asarray(low, dtype=sample_dtype)
@@ -188,7 +180,7 @@ class JAXFunctionalBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> tuple[Any, Any]:
-        key, next_state = self._split(state)
+        key, next_state = self._jax.random.split(state)
         shape = normalize_shape(size)
         sample_dtype = dtype if dtype is not None else self._jnp.float32
         if shape:
@@ -214,7 +206,7 @@ class JAXFunctionalBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> tuple[Any, Any]:
-        key, next_state = self._split(state)
+        key, next_state = self._jax.random.split(state)
         sample_shape = normalize_shape(size)
         sample_dtype = dtype if dtype is not None else self._jnp.float32
         concentration = self._jnp.asarray(shape, dtype=sample_dtype)
@@ -230,12 +222,6 @@ class JAXFunctionalBackend:
             dtype=sample_dtype,
         )
         scaled = gamma_samples * scale_arr
-        if (
-            not sample_shape
-            and self._jnp.ndim(scale_arr) == 0
-            and self._jnp.ndim(concentration) == 0
-        ):
-            return next_state, scaled[0]
         return next_state, scaled
 
     def choice(
@@ -247,7 +233,7 @@ class JAXFunctionalBackend:
         replace: bool,
         probabilities: Any | None,
     ) -> tuple[Any, Any]:
-        key, next_state = self._split(state)
+        key, next_state = self._jax.random.split(state)
         shape = normalize_shape(size)
         jax_shape = shape if shape else None
         if isinstance(population, int):

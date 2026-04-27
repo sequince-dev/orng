@@ -92,8 +92,14 @@ def create_functional_backend(
     device: Any | None = None,
     pure: bool = True,
 ) -> FunctionalBackend:
+    normalized_name = name.lower()
+    if normalized_name == "jax" and not pure:
+        raise ValueError(
+            "JAX functional backend is always pure; `pure=False` is not "
+            "supported."
+        )
     try:
-        factory = _FUNCTIONAL_FACTORIES[name.lower()]
+        factory = _FUNCTIONAL_FACTORIES[normalized_name]
     except KeyError as exc:  # pragma: no cover - defensive
         supported = "', '".join(
             sorted({k for k in _FUNCTIONAL_FACTORIES if k != "pytorch"})
