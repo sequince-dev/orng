@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from orng.functional import create_functional_backend
+from orng.functional import (
+    create_functional_backend,
+    create_functional_backend_from_xp,
+    infer_backend_name_from_xp,
+)
 
 
 def _check_backend_available(name: str) -> None:
@@ -252,3 +256,31 @@ def test_numpy_functional_backend_fast_state_skips_copying():
     next_state, sample = backend.random(state, size=(3,), dtype=np.float32)
     assert next_state is state
     assert sample.shape == (3,)
+
+
+def test_infer_backend_name_from_xp_numpy():
+    np = pytest.importorskip("numpy")
+    assert infer_backend_name_from_xp(np) == "numpy"
+
+
+def test_infer_backend_name_from_xp_jax():
+    jnp = pytest.importorskip("jax.numpy")
+    assert infer_backend_name_from_xp(jnp) == "jax"
+
+
+def test_create_functional_backend_from_xp_jax_is_pure():
+    jnp = pytest.importorskip("jax.numpy")
+
+    backend = create_functional_backend_from_xp(jnp)
+    state = backend.init_state(seed=0, generator=None)
+    next_state, sample = backend.normal(
+        state,
+        loc=0.0,
+        scale=1.0,
+        size=(4,),
+        dtype=jnp.float32,
+    )
+
+    assert sample.shape == (4,)
+    assert sample.dtype == jnp.float32
+    assert not bool(jnp.array_equal(next_state, state))

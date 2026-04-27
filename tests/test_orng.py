@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from orng import ArrayRNG
+from orng import ArrayRNG, create_backend_from_xp
 from orng._utils import normalize_shape, total_size
 from orng.backends import _FACTORIES
 from orng.backends import numpy as numpy_backend
@@ -132,6 +132,68 @@ def test_array_rng_rejects_unknown_backend():
         ArrayRNG(backend="unknown")
 
 
+def test_array_rng_from_xp_infers_backend(monkeypatch):
+    np = pytest.importorskip("numpy")
+
+    captured_kwargs = {}
+
+    class DummyBackend:
+        def __init__(self, **kwargs):
+            captured_kwargs.update(kwargs)
+
+        def random(self, *, size, dtype):
+            return None
+
+        def uniform(self, *, low, high, size, dtype):
+            return None
+
+        def normal(self, *, loc, scale, size, dtype):
+            return None
+
+        def gamma(self, *, shape, scale, size, dtype):
+            return None
+
+        def choice(self, population, *, size, replace, probabilities):
+            return None
+
+    monkeypatch.setitem(
+        _FACTORIES, "numpy", lambda **kwargs: DummyBackend(**kwargs)
+    )
+
+    rng = ArrayRNG.from_xp(np, seed=123)
+
+    assert rng.backend == "numpy"
+    assert captured_kwargs["seed"] == 123
+
+
+def test_create_backend_from_xp_uses_inferred_backend(monkeypatch):
+    np = pytest.importorskip("numpy")
+
+    captured_kwargs = {}
+
+    class DummyBackend:
+        def __init__(self, **kwargs):
+            captured_kwargs.update(kwargs)
+
+    monkeypatch.setitem(
+        _FACTORIES, "numpy", lambda **kwargs: DummyBackend(**kwargs)
+    )
+
+    backend = create_backend_from_xp(
+        np,
+        seed=5,
+        generator="sentinel",
+        device="cpu",
+    )
+
+    assert isinstance(backend, DummyBackend)
+    assert captured_kwargs == {
+        "seed": 5,
+        "generator": "sentinel",
+        "device": "cpu",
+    }
+
+
 def test_array_rng_forwards_generator_to_jax(monkeypatch):
     captured_kwargs = {}
 
@@ -159,6 +221,77 @@ def test_array_rng_forwards_generator_to_jax(monkeypatch):
     ArrayRNG(backend="jax", generator=key)
 
     assert captured_kwargs["generator"] is key
+
+
+def test_array_rng_to_functional(monkeypatch):
+    class DummyFunctionalBackend:
+        def __init__(self):
+            self.calls = []
+
+        def init_state(self, *, seed, generator):
+            return None
+
+        def random(self, state, *, size, dtype):
+            return state, None
+
+        def uniform(self, state, *, low, high, size, dtype):
+            return state, None
+
+        def normal(self, state, *, loc, scale, size, dtype):
+            return state, None
+
+        def gamma(self, state, *, shape, scale, size, dtype):
+            return state, None
+
+        def choice(self, state, population, *, size, replace, probabilities):
+            return state, None
+
+    backend = DummyFunctionalBackend()
+
+    monkeypatch.setattr(
+        "orng.functional.create_functional_backend",
+        lambda name, pure: backend,
+    )
+
+    rng = ArrayRNG(backend="numpy", seed=123)
+    functional_backend, state = rng.to_functional()
+
+    assert functional_backend is backend
+    assert state is rng._impl._state
+
+
+def test_array_rng_to_functional_forwards_pure(monkeypatch):
+    captured = {}
+
+    class DummyFunctionalBackend:
+        def init_state(self, *, seed, generator):
+            return None
+
+        def random(self, state, *, size, dtype):
+            return state, None
+
+        def uniform(self, state, *, low, high, size, dtype):
+            return state, None
+
+        def normal(self, state, *, loc, scale, size, dtype):
+            return state, None
+
+        def gamma(self, state, *, shape, scale, size, dtype):
+            return state, None
+
+        def choice(self, state, population, *, size, replace, probabilities):
+            return state, None
+
+    monkeypatch.setattr(
+        "orng.functional.create_functional_backend",
+        lambda name, pure: captured.update({"name": name, "pure": pure})
+        or DummyFunctionalBackend(),
+    )
+
+    rng = ArrayRNG(backend="numpy", seed=123)
+    rng.to_functional(pure=False)
+
+    assert captured == {"name": "numpy", "pure": False}
 
 
 def test_numpy_backend_import_error_mentions_extra(monkeypatch):
