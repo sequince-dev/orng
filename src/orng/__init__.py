@@ -5,7 +5,18 @@ try:
 except importlib.metadata.PackageNotFoundError:
     __version__ = "unknown"
 
-from .functional import create_functional_backend
+from .backends import create_backend_from_xp, infer_backend_name_from_xp
+from .functional import (
+    create_functional_backend,
+    create_functional_backend_from_xp,
+)
 from .orng import ArrayRNG
 
-__all__ = ["ArrayRNG", "create_functional_backend", "__version__"]
+__all__ = [
+    "ArrayRNG",
+    "create_backend_from_xp",
+    "create_functional_backend",
+    "create_functional_backend_from_xp",
+    "infer_backend_name_from_xp",
+    "__version__",
+]

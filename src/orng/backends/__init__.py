@@ -35,6 +35,31 @@ _FACTORIES: Dict[str, BackendFactory] = {
 }
 
 
+def infer_backend_name_from_xp(xp: Any) -> str:
+    try:
+        from array_api_compat import (
+            is_cupy_namespace,
+            is_jax_namespace,
+            is_numpy_namespace,
+            is_torch_namespace,
+        )
+    except ImportError as exc:  # pragma: no cover - optional dependency
+        raise ImportError(
+            "Inferring ORNG backends from an array namespace requires "
+            "'array_api_compat'."
+        ) from exc
+
+    if is_numpy_namespace(xp):
+        return "numpy"
+    if is_jax_namespace(xp):
+        return "jax"
+    if is_torch_namespace(xp):
+        return "torch"
+    if is_cupy_namespace(xp):
+        return "cupy"
+    raise ValueError("Unsupported array namespace for ORNG backend inference.")
+
+
 def create_backend(
     name: str,
     *,
@@ -54,4 +79,23 @@ def create_backend(
     return factory(seed=seed, generator=generator, device=device)
 
 
-__all__ = ["create_backend"]
+def create_backend_from_xp(
+    xp: Any,
+    *,
+    seed: int | None,
+    generator: Any | None,
+    device: Any | None,
+):
+    return create_backend(
+        infer_backend_name_from_xp(xp),
+        seed=seed,
+        generator=generator,
+        device=device,
+    )
+
+
+__all__ = [
+    "create_backend",
+    "create_backend_from_xp",
+    "infer_backend_name_from_xp",
+]

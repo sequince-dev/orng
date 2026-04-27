@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Protocol
 
 from ._utils import SizeLike
+from .backends import infer_backend_name_from_xp
 from .backends.cupy import CuPyFunctionalBackend
 from .backends.jax import JAXFunctionalBackend
 from .backends.numpy import NumPyFunctionalBackend
@@ -110,7 +111,21 @@ def create_functional_backend(
     return factory(device=device, pure=pure)
 
 
+def create_functional_backend_from_xp(
+    xp: Any,
+    *,
+    device: Any | None = None,
+    pure: bool | None = None,
+) -> FunctionalBackend:
+    name = infer_backend_name_from_xp(xp)
+    if pure is None:
+        pure = True
+    return create_functional_backend(name, device=device, pure=pure)
+
+
 __all__ = [
     "FunctionalBackend",
+    "create_functional_backend_from_xp",
     "create_functional_backend",
+    "infer_backend_name_from_xp",
 ]

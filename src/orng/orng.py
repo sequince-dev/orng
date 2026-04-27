@@ -11,11 +11,13 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from ._utils import SizeLike
-from .backends import create_backend
+from .backends import create_backend, infer_backend_name_from_xp
 
 
 class RNGBackend(Protocol):
     """Protocol representing the shim each backend must implement."""
+
+    _state: Any
 
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any: ...
 
@@ -87,6 +89,22 @@ class ArrayRNG:
     seed: int | None = None
     generator: Any | None = None
     device: Any | None = None
+
+    @classmethod
+    def from_xp(
+        cls,
+        xp: Any,
+        *,
+        seed: int | None = None,
+        generator: Any | None = None,
+        device: Any | None = None,
+    ) -> "ArrayRNG":
+        return cls(
+            backend=infer_backend_name_from_xp(xp),
+            seed=seed,
+            generator=generator,
+            device=device,
+        )
 
     def __post_init__(self) -> None:
         self._impl: RNGBackend = create_backend(
@@ -169,6 +187,22 @@ class ArrayRNG:
             replace=replace,
             probabilities=p,
         )
+
+    def to_functional(
+        self,
+        *,
+        pure: bool | None = None,
+    ) -> tuple[Any, Any]:
+        """Return the matching functional backend and current backend state."""
+        from .functional import create_functional_backend
+
+        if pure is None:
+            pure = self.backend == "jax"
+        backend = create_functional_backend(
+            self.backend,
+            pure=pure,
+        )
+        return backend, self._impl._state
 
 
 __all__ = ["ArrayRNG"]
