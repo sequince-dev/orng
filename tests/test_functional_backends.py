@@ -200,6 +200,48 @@ def test_jax_functional_backend_explicit_compile():
     assert not bool(jnp.array_equal(next_state, state))
 
 
+def test_jax_functional_backend_gamma_scalar():
+    jnp = pytest.importorskip("jax.numpy")
+
+    backend = create_functional_backend("jax")
+    state = backend.init_state(seed=0, generator=None)
+
+    next_state, sample = backend.gamma(
+        state,
+        shape=2.0,
+        scale=3.0,
+        size=None,
+        dtype=jnp.float32,
+    )
+
+    assert sample.shape == ()
+    assert sample.dtype == jnp.float32
+    assert not bool(jnp.array_equal(next_state, state))
+
+
+def test_jax_functional_backend_seed_none_uses_entropy(monkeypatch):
+    jax = pytest.importorskip("jax")
+
+    backend = create_functional_backend("jax")
+    monkeypatch.setattr(
+        "orng.backends.jax.secrets.randbits", lambda bits: 1234
+    )
+
+    state = backend.init_state(seed=None, generator=None)
+
+    assert bool(jax.numpy.array_equal(state, jax.random.key(1234)))
+
+
+def test_jax_functional_backend_rejects_impure_mode():
+    pytest.importorskip("jax")
+
+    with pytest.raises(
+        ValueError,
+        match="always pure",
+    ):
+        create_functional_backend("jax", pure=False)
+
+
 def test_numpy_functional_backend_fast_state_skips_copying():
     np = pytest.importorskip("numpy")
 
