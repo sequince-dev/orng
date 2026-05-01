@@ -50,6 +50,97 @@ The backend module is imported lazily. If the requested library is missing,
 `ArrayRNG` will raise an informative `ImportError` that points to the matching
 extra.
 
+## Functional Backend API
+
+For JAX and other functional workflows, `orng` also provides a pure API in
+`orng.functional`:
+
+```python
+from orng.functional import create_functional_backend
+
+backend = create_functional_backend("numpy")
+state = backend.init_state(seed=42, generator=None)
+
+state, x = backend.normal(state, loc=0.0, scale=1.0, size=(4,), dtype=None)
+state, y = backend.uniform(state, low=-1.0, high=1.0, size=(2, 2), dtype=None)
+```
+
+Every sampling call takes an explicit `state` and returns
+`(next_state, sample)`. This avoids mutable RNG objects inside compiled code.
+
+By default this API is pure (`pure=True`). On stateful backends (`numpy`,
+`torch`, and `cupy`) this snapshots RNG state each call. For lower overhead on
+those backends, you can opt into a trusted mutable fast path with
+`pure=False`:
+
+```python
+backend = create_functional_backend("numpy", pure=False)
+state = backend.init_state(seed=42, generator=None)  # numpy.random.Generator
+state, x = backend.normal(state, loc=0.0, scale=1.0, size=(4,), dtype=None)
+```
+
+The JAX functional backend is always pure and does not support `pure=False`.
+
+Supported functional methods:
+
+- `random`
+- `uniform`
+- `normal`
+- `choice`
+- `gamma`
+
+### JAX Compilation Example
+
+```python
+import jax
+import jax.numpy as jnp
+from orng.functional import create_functional_backend
+
+backend = create_functional_backend("jax")
+state = backend.init_state(seed=0, generator=None)
+
+@jax.jit
+def step(key):
+    next_key, sample = backend.normal(
+        key, loc=0.0, scale=1.0, size=(8,), dtype=jnp.float32
+    )
+    return next_key, sample
+
+state, sample = step(state)
+```
+
+### Functional State Reference
+
+The functional API follows the native conventions of each backend rather than
+introducing a wrapper state type.
+
+`init_state(seed=..., generator=...)` accepts backend-specific generator
+inputs:
+
+| Backend | `generator` argument |
+|---------|----------------------|
+| `numpy` | `numpy.random.Generator` |
+| `torch` | `torch.Generator` |
+| `cupy`  | `cupy.random.Generator` |
+| `jax`   | JAX PRNG key array, typically from `jax.random.key(...)` |
+
+If `generator=None`, ORNG creates a new backend-native state from `seed`. If
+`seed=None`, the backend chooses a fresh random seed using its usual behavior.
+
+The `state` value passed into `random`, `uniform`, `normal`, `choice`, and
+`gamma` also matches the backend:
+
+| Backend | `pure=True` state | `pure=False` state |
+|---------|-------------------|--------------------|
+| `numpy` | NumPy bit-generator state `dict` | `numpy.random.Generator` |
+| `torch` | `TorchFunctionalState` | `torch.Generator` |
+| `cupy`  | CuPy bit-generator state `dict` | `cupy.random.Generator` |
+| `jax`   | JAX PRNG key array | not supported |
+
+For example, NumPy in pure mode snapshots and returns a bit-generator state
+dictionary each call, while `pure=False` threads a `numpy.random.Generator`
+through the same functional interface. JAX always uses and returns a PRNG key.
+
 ### Backend State Reference
 
 When you pass the optional `generator` argument to `ArrayRNG`, the expected

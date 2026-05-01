@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 from typing import Any
 
 from .._utils import SizeLike, normalize_shape
@@ -7,54 +8,16 @@ from .._utils import SizeLike, normalize_shape
 
 class JAXBackend:
     def __init__(self, *, seed: int | None, key: Any | None) -> None:
-        try:
-            import jax
-            from jax import config as jax_config
-
-            if not getattr(jax_config, "x64_enabled", False):
-                jax_config.update("jax_enable_x64", True)
-
-            import jax.numpy as jnp
-        except ImportError as exc:  # pragma: no cover - optional dependency
-            raise ImportError(
-                "JAX backend requires the 'jax' package to be installed. "
-                "Install it with `pip install orng[jax]`."
-            ) from exc
-
-        self._jax = jax
-        self._jnp = jnp
-        if key is None:
-            if seed is None:
-                seed = 0
-            self._key = jax.random.key(seed)
-        else:
-            self._key = key
-
-    def _next_key(self) -> Any:
-        key, self._key = self._jax.random.split(self._key)
-        return key
+        self._impl = JAXFunctionalBackend()
+        self._state = self._impl.init_state(seed=seed, generator=key)
 
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any:
-        key = self._next_key()
-        shape = normalize_shape(size)
-        dtype = dtype if dtype is not None else self._jnp.float32
-        low = self._jnp.array(0.0, dtype=dtype)
-        high = self._jnp.array(1.0, dtype=dtype)
-        if shape:
-            return self._jax.random.uniform(
-                key,
-                shape=shape,
-                minval=low,
-                maxval=high,
-                dtype=dtype,
-            )
-        return self._jax.random.uniform(
-            key,
-            shape=(1,),
-            minval=low,
-            maxval=high,
+        self._state, result = self._impl.random(
+            self._state,
+            size=size,
             dtype=dtype,
-        )[0]
+        )
+        return result
 
     def uniform(
         self,
@@ -64,26 +27,14 @@ class JAXBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        key = self._next_key()
-        shape = normalize_shape(size)
-        dtype = dtype if dtype is not None else self._jnp.float32
-        low_arr = self._jnp.asarray(low, dtype=dtype)
-        high_arr = self._jnp.asarray(high, dtype=dtype)
-        if shape:
-            return self._jax.random.uniform(
-                key,
-                shape=shape,
-                minval=low_arr,
-                maxval=high_arr,
-                dtype=dtype,
-            )
-        return self._jax.random.uniform(
-            key,
-            shape=(1,),
-            minval=low_arr,
-            maxval=high_arr,
+        self._state, result = self._impl.uniform(
+            self._state,
+            low=low,
+            high=high,
+            size=size,
             dtype=dtype,
-        )[0]
+        )
+        return result
 
     def normal(
         self,
@@ -93,22 +44,14 @@ class JAXBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        key = self._next_key()
-        shape = normalize_shape(size)
-        dtype = dtype if dtype is not None else self._jnp.float32
-        if shape:
-            standard = self._jax.random.normal(
-                key,
-                shape=shape,
-                dtype=dtype,
-            )
-        else:
-            standard = self._jax.random.normal(
-                key,
-                shape=(1,),
-                dtype=dtype,
-            )[0]
-        return standard * scale + loc
+        self._state, result = self._impl.normal(
+            self._state,
+            loc=loc,
+            scale=scale,
+            size=size,
+            dtype=dtype,
+        )
+        return result
 
     def gamma(
         self,
@@ -118,30 +61,14 @@ class JAXBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        key = self._next_key()
-        sample_shape = normalize_shape(size)
-        dtype = dtype if dtype is not None else self._jnp.float32
-        concentration = self._jnp.asarray(shape, dtype=dtype)
-        scale_arr = self._jnp.asarray(scale, dtype=dtype)
-        # Handle broadcasting of shape and scale
-        if sample_shape:
-            draw_shape = sample_shape + self._jnp.shape(concentration)
-        else:
-            draw_shape = self._jnp.shape(concentration)
-        gamma_samples = self._jax.random.gamma(
-            key,
-            concentration,
-            shape=draw_shape,
+        self._state, result = self._impl.gamma(
+            self._state,
+            shape=shape,
+            scale=scale,
+            size=size,
             dtype=dtype,
         )
-        scaled = gamma_samples * scale_arr
-        if (
-            not sample_shape
-            and self._jnp.ndim(scale) == 0
-            and self._jnp.ndim(shape) == 0
-        ):
-            return scaled[0]
-        return scaled
+        return result
 
     def choice(
         self,
@@ -151,7 +78,162 @@ class JAXBackend:
         replace: bool,
         probabilities: Any | None,
     ) -> Any:
-        key = self._next_key()
+        self._state, result = self._impl.choice(
+            self._state,
+            population,
+            size=size,
+            replace=replace,
+            probabilities=probabilities,
+        )
+        return result
+
+
+class JAXFunctionalBackend:
+    def __init__(self) -> None:
+        try:
+            import jax
+            import jax.numpy as jnp
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise ImportError(
+                "JAX backend requires the 'jax' package to be installed. "
+                "Install it with `pip install orng[jax]`."
+            ) from exc
+
+        self._jax = jax
+        self._jnp = jnp
+
+    def init_state(self, *, seed: int | None, generator: Any | None) -> Any:
+        if generator is not None:
+            return generator
+        if seed is None:
+            seed = secrets.randbits(32)
+        return self._jax.random.key(seed)
+
+    def random(
+        self,
+        state: Any,
+        *,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        key, next_state = self._jax.random.split(state)
+        shape = normalize_shape(size)
+        sample_dtype = dtype if dtype is not None else self._jnp.float32
+        low = self._jnp.array(0.0, dtype=sample_dtype)
+        high = self._jnp.array(1.0, dtype=sample_dtype)
+        if shape:
+            result = self._jax.random.uniform(
+                key,
+                shape=shape,
+                minval=low,
+                maxval=high,
+                dtype=sample_dtype,
+            )
+        else:
+            result = self._jax.random.uniform(
+                key,
+                shape=(1,),
+                minval=low,
+                maxval=high,
+                dtype=sample_dtype,
+            )[0]
+        return next_state, result
+
+    def uniform(
+        self,
+        state: Any,
+        *,
+        low: Any,
+        high: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        key, next_state = self._jax.random.split(state)
+        shape = normalize_shape(size)
+        sample_dtype = dtype if dtype is not None else self._jnp.float32
+        low_arr = self._jnp.asarray(low, dtype=sample_dtype)
+        high_arr = self._jnp.asarray(high, dtype=sample_dtype)
+        if shape:
+            result = self._jax.random.uniform(
+                key,
+                shape=shape,
+                minval=low_arr,
+                maxval=high_arr,
+                dtype=sample_dtype,
+            )
+        else:
+            result = self._jax.random.uniform(
+                key,
+                shape=(1,),
+                minval=low_arr,
+                maxval=high_arr,
+                dtype=sample_dtype,
+            )[0]
+        return next_state, result
+
+    def normal(
+        self,
+        state: Any,
+        *,
+        loc: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        key, next_state = self._jax.random.split(state)
+        shape = normalize_shape(size)
+        sample_dtype = dtype if dtype is not None else self._jnp.float32
+        if shape:
+            standard = self._jax.random.normal(
+                key,
+                shape=shape,
+                dtype=sample_dtype,
+            )
+        else:
+            standard = self._jax.random.normal(
+                key,
+                shape=(1,),
+                dtype=sample_dtype,
+            )[0]
+        return next_state, standard * scale + loc
+
+    def gamma(
+        self,
+        state: Any,
+        *,
+        shape: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        key, next_state = self._jax.random.split(state)
+        sample_shape = normalize_shape(size)
+        sample_dtype = dtype if dtype is not None else self._jnp.float32
+        concentration = self._jnp.asarray(shape, dtype=sample_dtype)
+        scale_arr = self._jnp.asarray(scale, dtype=sample_dtype)
+        if sample_shape:
+            draw_shape = sample_shape + self._jnp.shape(concentration)
+        else:
+            draw_shape = self._jnp.shape(concentration)
+        gamma_samples = self._jax.random.gamma(
+            key,
+            concentration,
+            shape=draw_shape,
+            dtype=sample_dtype,
+        )
+        scaled = gamma_samples * scale_arr
+        return next_state, scaled
+
+    def choice(
+        self,
+        state: Any,
+        population: int | Any,
+        *,
+        size: SizeLike,
+        replace: bool,
+        probabilities: Any | None,
+    ) -> tuple[Any, Any]:
+        key, next_state = self._jax.random.split(state)
         shape = normalize_shape(size)
         jax_shape = shape if shape else None
         if isinstance(population, int):
@@ -168,9 +250,7 @@ class JAXBackend:
             replace=replace,
             p=probs,
         )
-        if not shape:
-            return result
-        return result
+        return next_state, result
 
 
-__all__ = ["JAXBackend"]
+__all__ = ["JAXBackend", "JAXFunctionalBackend"]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from .._utils import SizeLike
@@ -7,27 +8,16 @@ from .._utils import SizeLike
 
 class CuPyBackend:
     def __init__(self, *, seed: int | None, generator: Any | None) -> None:
-        try:
-            import cupy as cp
-        except ImportError as exc:  # pragma: no cover - optional dependency
-            raise ImportError(
-                "CuPy backend requires the 'cupy' package to be installed. "
-                "Install it with `pip install orng[cupy]`."
-            ) from exc
-
-        self._cupy = cp
-        if generator is None:
-            self._generator = cp.random.default_rng(seed)
-        elif isinstance(generator, cp.random.Generator):
-            self._generator = generator
-        else:
-            raise TypeError(
-                "generator must be a cupy.random.Generator when using the "
-                "CuPy backend."
-            )
+        self._impl = CuPyFunctionalBackend(pure=False)
+        self._state = self._impl.init_state(seed=seed, generator=generator)
 
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any:
-        return self._generator.random(size=size, dtype=dtype)
+        self._state, result = self._impl.random(
+            self._state,
+            size=size,
+            dtype=dtype,
+        )
+        return result
 
     def uniform(
         self,
@@ -37,12 +27,14 @@ class CuPyBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        return self._generator.uniform(
+        self._state, result = self._impl.uniform(
+            self._state,
             low=low,
             high=high,
             size=size,
             dtype=dtype,
         )
+        return result
 
     def normal(
         self,
@@ -52,11 +44,13 @@ class CuPyBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        standard = self._generator.standard_normal(
+        self._state, result = self._impl.normal(
+            self._state,
+            loc=loc,
+            scale=scale,
             size=size,
             dtype=dtype,
         )
-        result = loc + standard * scale
         return result
 
     def gamma(
@@ -67,13 +61,13 @@ class CuPyBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        result = self._generator.gamma(
+        self._state, result = self._impl.gamma(
+            self._state,
             shape=shape,
             scale=scale,
             size=size,
+            dtype=dtype,
         )
-        if dtype is not None:
-            return self._cupy.asarray(result, dtype=dtype)
         return result
 
     def choice(
@@ -84,9 +78,123 @@ class CuPyBackend:
         replace: bool,
         probabilities: Any | None,
     ) -> Any:
-        # CuPy's Generator lacks choice, so we implement the core semantics.
+        self._state, result = self._impl.choice(
+            self._state,
+            population,
+            size=size,
+            replace=replace,
+            probabilities=probabilities,
+        )
+        return result
+
+
+class CuPyFunctionalBackend:
+    def __init__(self, *, pure: bool = True) -> None:
+        try:
+            import cupy as cp
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise ImportError(
+                "CuPy backend requires the 'cupy' package to be installed. "
+                "Install it with `pip install orng[cupy]`."
+            ) from exc
+        self._cupy = cp
+        self._pure = pure
+
+    def init_state(self, *, seed: int | None, generator: Any | None) -> Any:
         cp = self._cupy
-        gen = self._generator
+        if generator is None:
+            gen = cp.random.default_rng(seed)
+        elif isinstance(generator, cp.random.Generator):
+            gen = generator
+        else:
+            raise TypeError(
+                "generator must be a cupy.random.Generator when using the "
+                "CuPy backend."
+            )
+        if self._pure:
+            return copy.deepcopy(gen.bit_generator.state)
+        return gen
+
+    def _generator_from_state(self, state: Any) -> Any:
+        if not self._pure:
+            if not isinstance(state, self._cupy.random.Generator):
+                raise TypeError(
+                    "state must be a cupy.random.Generator when pure=False."
+                )
+            return state
+        gen = self._cupy.random.default_rng()
+        gen.bit_generator.state = copy.deepcopy(state)
+        return gen
+
+    def _next_state_and_result(self, gen: Any, result: Any) -> tuple[Any, Any]:
+        if self._pure:
+            return copy.deepcopy(gen.bit_generator.state), result
+        return gen, result
+
+    def random(
+        self,
+        state: Any,
+        *,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        result = gen.random(size=size, dtype=dtype)
+        return self._next_state_and_result(gen, result)
+
+    def uniform(
+        self,
+        state: Any,
+        *,
+        low: Any,
+        high: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        result = gen.uniform(low=low, high=high, size=size, dtype=dtype)
+        return self._next_state_and_result(gen, result)
+
+    def normal(
+        self,
+        state: Any,
+        *,
+        loc: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        standard = gen.standard_normal(size=size, dtype=dtype)
+        result = loc + standard * scale
+        return self._next_state_and_result(gen, result)
+
+    def gamma(
+        self,
+        state: Any,
+        *,
+        shape: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        result = gen.gamma(shape=shape, scale=scale, size=size)
+        if dtype is not None:
+            result = self._cupy.asarray(result, dtype=dtype)
+        return self._next_state_and_result(gen, result)
+
+    def choice(
+        self,
+        state: Any,
+        population: int | Any,
+        *,
+        size: SizeLike,
+        replace: bool,
+        probabilities: Any | None,
+    ) -> tuple[Any, Any]:
+        cp = self._cupy
+        gen = self._generator_from_state(state)
 
         if isinstance(population, int):
             n = population
@@ -106,7 +214,6 @@ class CuPyBackend:
             if probs is None:
                 indices = gen.integers(0, n, size=target_size)
             else:
-                # Inverse-CDF sampling: draw U(0,1) then locate within the CDF.
                 cdf = cp.cumsum(probs)
                 draws = gen.random(size=target_size)
                 indices = cp.searchsorted(cdf, draws)
@@ -119,12 +226,8 @@ class CuPyBackend:
             if probs is None:
                 indices = gen.permutation(n)[:flat_k]
             else:
-                # Gumbel-top-k trick for weighted sampling without replacement.
-                # Ref: https://arxiv.org/abs/1611.00712 (Gumbel-Softmax).
-                # Inverse CDF for Gumbel: -log(-log(U)), U~Uniform(0,1)
                 gumbels = -cp.log(-cp.log(gen.random(n)))
                 keys = cp.log(probs) + gumbels
-                # Select the top-k keys
                 indices = cp.argpartition(keys, -flat_k)[-flat_k:]
             if target_size != ():
                 indices = cp.reshape(indices, target_size)
@@ -132,8 +235,10 @@ class CuPyBackend:
                 indices = indices[0]
 
         if values is None:
-            return indices
-        return values[indices]
+            result = indices
+        else:
+            result = values[indices]
+        return self._next_state_and_result(gen, result)
 
 
-__all__ = ["CuPyBackend"]
+__all__ = ["CuPyBackend", "CuPyFunctionalBackend"]

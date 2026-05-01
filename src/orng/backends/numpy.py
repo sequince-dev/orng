@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from .._utils import SizeLike
@@ -7,26 +8,16 @@ from .._utils import SizeLike
 
 class NumPyBackend:
     def __init__(self, *, seed: int | None, generator: Any | None) -> None:
-        try:
-            import numpy as np
-        except ImportError as exc:  # pragma: no cover - optional dependency
-            raise ImportError(
-                "NumPy backend requires the 'numpy' package to be installed. "
-                "Install it with `pip install orng[numpy]`."
-            ) from exc
-
-        if generator is None:
-            self._generator = np.random.default_rng(seed)
-        elif isinstance(generator, np.random.Generator):
-            self._generator = generator
-        else:
-            raise TypeError(
-                "generator must be a numpy.random.Generator when using the "
-                "NumPy backend."
-            )
+        self._impl = NumPyFunctionalBackend(pure=False)
+        self._state = self._impl.init_state(seed=seed, generator=generator)
 
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any:
-        return self._generator.random(size=size, dtype=dtype)
+        self._state, result = self._impl.random(
+            self._state,
+            size=size,
+            dtype=dtype,
+        )
+        return result
 
     def uniform(
         self,
@@ -36,15 +27,13 @@ class NumPyBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        result = self._generator.uniform(
+        self._state, result = self._impl.uniform(
+            self._state,
             low=low,
             high=high,
             size=size,
+            dtype=dtype,
         )
-        if dtype is not None:
-            import numpy as np
-
-            return np.asarray(result, dtype=dtype)
         return result
 
     def normal(
@@ -55,15 +44,13 @@ class NumPyBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        result = self._generator.normal(
+        self._state, result = self._impl.normal(
+            self._state,
             loc=loc,
             scale=scale,
             size=size,
+            dtype=dtype,
         )
-        if dtype is not None:
-            import numpy as np
-
-            return np.asarray(result, dtype=dtype)
         return result
 
     def gamma(
@@ -74,15 +61,13 @@ class NumPyBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        result = self._generator.gamma(
+        self._state, result = self._impl.gamma(
+            self._state,
             shape=shape,
             scale=scale,
             size=size,
+            dtype=dtype,
         )
-        if dtype is not None:
-            import numpy as np
-
-            return np.asarray(result, dtype=dtype)
         return result
 
     def choice(
@@ -93,12 +78,132 @@ class NumPyBackend:
         replace: bool,
         probabilities: Any | None,
     ) -> Any:
-        return self._generator.choice(
+        self._state, result = self._impl.choice(
+            self._state,
+            population,
+            size=size,
+            replace=replace,
+            probabilities=probabilities,
+        )
+        return result
+
+
+class NumPyFunctionalBackend:
+    def __init__(self, *, pure: bool = True) -> None:
+        try:
+            import numpy as np
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise ImportError(
+                "NumPy backend requires the 'numpy' package to be installed. "
+                "Install it with `pip install orng[numpy]`."
+            ) from exc
+        self._np = np
+        self._pure = pure
+
+    def init_state(self, *, seed: int | None, generator: Any | None) -> Any:
+        np = self._np
+        if generator is None:
+            gen = np.random.default_rng(seed)
+        elif isinstance(generator, np.random.Generator):
+            gen = generator
+        else:
+            raise TypeError(
+                "generator must be a numpy.random.Generator when using the "
+                "NumPy backend."
+            )
+        if self._pure:
+            return copy.deepcopy(gen.bit_generator.state)
+        return gen
+
+    def _generator_from_state(self, state: Any) -> Any:
+        if not self._pure:
+            if not isinstance(state, self._np.random.Generator):
+                raise TypeError(
+                    "state must be a numpy.random.Generator when pure=False."
+                )
+            return state
+        gen = self._np.random.default_rng()
+        gen.bit_generator.state = copy.deepcopy(state)
+        return gen
+
+    def _next_state_and_result(self, gen: Any, result: Any) -> tuple[Any, Any]:
+        if self._pure:
+            return copy.deepcopy(gen.bit_generator.state), result
+        return gen, result
+
+    def random(
+        self,
+        state: Any,
+        *,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        result = gen.random(size=size, dtype=dtype)
+        return self._next_state_and_result(gen, result)
+
+    def uniform(
+        self,
+        state: Any,
+        *,
+        low: Any,
+        high: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        result = gen.uniform(low=low, high=high, size=size)
+        if dtype is not None:
+            result = self._np.asarray(result, dtype=dtype)
+        return self._next_state_and_result(gen, result)
+
+    def normal(
+        self,
+        state: Any,
+        *,
+        loc: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        result = gen.normal(loc=loc, scale=scale, size=size)
+        if dtype is not None:
+            result = self._np.asarray(result, dtype=dtype)
+        return self._next_state_and_result(gen, result)
+
+    def gamma(
+        self,
+        state: Any,
+        *,
+        shape: Any,
+        scale: Any,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        result = gen.gamma(shape=shape, scale=scale, size=size)
+        if dtype is not None:
+            result = self._np.asarray(result, dtype=dtype)
+        return self._next_state_and_result(gen, result)
+
+    def choice(
+        self,
+        state: Any,
+        population: int | Any,
+        *,
+        size: SizeLike,
+        replace: bool,
+        probabilities: Any | None,
+    ) -> tuple[Any, Any]:
+        gen = self._generator_from_state(state)
+        result = gen.choice(
             population,
             size=size,
             replace=replace,
             p=probabilities,
         )
+        return self._next_state_and_result(gen, result)
 
 
-__all__ = ["NumPyBackend"]
+__all__ = ["NumPyBackend", "NumPyFunctionalBackend"]

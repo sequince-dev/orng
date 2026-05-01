@@ -12,7 +12,9 @@ authors = [
     { name = "Michael J. Williams" },
     { name = "Christian Chapman-Bird" }
 ]
-dependencies = []
+dependencies = [
+    "array-api-compat",
+]
 dynamic = [
     "version"
 ]
