@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from orng import ArrayRNG, create_backend_from_xp
+from orng import Generator, create_backend_from_xp
 from orng._utils import normalize_shape, total_size
 from orng.backends import _FACTORIES
 from orng.backends import numpy as numpy_backend
@@ -76,7 +76,9 @@ def test_array_rng_delegates_to_backends(monkeypatch):
 
     monkeypatch.setitem(_FACTORIES, "numpy", fake_factory)
 
-    rng = ArrayRNG(backend="numpy", seed=7, generator="sentinel", device="cpu")
+    rng = Generator(
+        backend="numpy", seed=7, generator="sentinel", device="cpu"
+    )
     assert len(instances) == 1
     backend = instances[0]
     assert backend.seed == 7
@@ -129,7 +131,7 @@ def test_array_rng_delegates_to_backends(monkeypatch):
 
 def test_array_rng_rejects_unknown_backend():
     with pytest.raises(ValueError):
-        ArrayRNG(backend="unknown")
+        Generator(backend="unknown")
 
 
 def test_array_rng_from_xp_infers_backend(monkeypatch):
@@ -160,7 +162,7 @@ def test_array_rng_from_xp_infers_backend(monkeypatch):
         _FACTORIES, "numpy", lambda **kwargs: DummyBackend(**kwargs)
     )
 
-    rng = ArrayRNG.from_xp(np, seed=123)
+    rng = Generator.from_xp(np, seed=123)
 
     assert rng.backend == "numpy"
     assert captured_kwargs["seed"] == 123
@@ -218,7 +220,7 @@ def test_array_rng_forwards_generator_to_jax(monkeypatch):
     )
 
     key = ("jax-key",)
-    ArrayRNG(backend="jax", generator=key)
+    Generator(backend="jax", generator=key)
 
     assert captured_kwargs["generator"] is key
 
@@ -253,7 +255,7 @@ def test_array_rng_to_functional(monkeypatch):
         lambda name, pure: backend,
     )
 
-    rng = ArrayRNG(backend="numpy", seed=123)
+    rng = Generator(backend="numpy", seed=123)
     functional_backend, state = rng.to_functional()
 
     assert functional_backend is backend
@@ -288,7 +290,7 @@ def test_array_rng_to_functional_forwards_pure(monkeypatch):
         or DummyFunctionalBackend(),
     )
 
-    rng = ArrayRNG(backend="numpy", seed=123)
+    rng = Generator(backend="numpy", seed=123)
     rng.to_functional(pure=False)
 
     assert captured == {"name": "numpy", "pure": False}
