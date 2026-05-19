@@ -39,15 +39,15 @@ You can also combine extras, e.g. `pip install "orng[numpy,torch]"`.
 ## Quick Start
 
 ```python
-from orng import ArrayRNG
+from orng import Generator
 
-rng = ArrayRNG(backend="numpy", seed=42)
+rng = Generator(backend="numpy", seed=42)
 samples = rng.normal(loc=0.0, scale=1.0, size=5)
 uniform = rng.uniform(low=-1.0, high=1.0, size=(2, 2))
 ```
 
 The backend module is imported lazily. If the requested library is missing,
-`ArrayRNG` will raise an informative `ImportError` that points to the matching
+`Generator` will raise an informative `ImportError` that points to the matching
 extra.
 
 ## Functional Backend API
@@ -143,7 +143,7 @@ through the same functional interface. JAX always uses and returns a PRNG key.
 
 ### Backend State Reference
 
-When you pass the optional `generator` argument to `ArrayRNG`, the expected
+When you pass the optional `generator` argument to `Generator`, the expected
 object depends on the backend:
 
 | Backend | Generator argument |
@@ -162,7 +162,7 @@ orng/
 ├── src/orng/
 │   ├── __init__.py      # package exports
 │   ├── _utils.py        # shared helpers (internal)
-│   ├── orng.py          # ArrayRNG facade
+│   ├── orng.py          # Generator facade
 │   └── backends/        # backend-specific implementations
 └── README.md
 ```
