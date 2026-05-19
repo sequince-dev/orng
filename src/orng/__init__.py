@@ -10,10 +10,11 @@ from .functional import (
     create_functional_backend,
     create_functional_backend_from_xp,
 )
-from .orng import ArrayRNG
+from .orng import ArrayRNG, Generator
 
 __all__ = [
     "ArrayRNG",
+    "Generator",
     "create_backend_from_xp",
     "create_functional_backend",
     "create_functional_backend_from_xp",

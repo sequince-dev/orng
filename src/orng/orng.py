@@ -1,6 +1,6 @@
 """Backend-aware random number generation helpers.
 
-This module introduces :class:`ArrayRNG`, a small facade that mimics the subset
+This module introduces :class:`Generator`, a small facade that mimics the subset
 of ``numpy.random.Generator`` APIs. The class presents a uniform interface
 across NumPy, PyTorch, CuPy, and JAX.
 """
@@ -59,7 +59,7 @@ class RNGBackend(Protocol):
 
 
 @dataclass
-class ArrayRNG:
+class Generator:
     """Facade exposing ``numpy.random.Generator``-style helpers across backends.
 
     Parameters
@@ -98,7 +98,7 @@ class ArrayRNG:
         seed: int | None = None,
         generator: Any | None = None,
         device: Any | None = None,
-    ) -> "ArrayRNG":
+    ) -> "Generator":
         return cls(
             backend=infer_backend_name_from_xp(xp),
             seed=seed,
@@ -205,4 +205,18 @@ class ArrayRNG:
         return backend, self._impl._state
 
 
-__all__ = ["ArrayRNG"]
+class ArrayRNG(Generator):
+    """Deprecated alias for :class:`Generator`."""
+
+    def __post_init__(self) -> None:
+        import warnings
+
+        warnings.warn(
+            "ArrayRNG is deprecated and will be removed in a future release. "
+            "Please use orng.Generator instead.",
+            FutureWarning,
+        )
+        super().__post_init__()
+
+
+__all__ = ["ArrayRNG", "Generator"]
