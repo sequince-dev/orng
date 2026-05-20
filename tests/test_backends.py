@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from orng import Generator
+from orng import RandomGenerator
 from orng.backends.cupy import CuPyBackend
 from orng.backends.jax import JAXBackend
 from orng.backends.numpy import NumPyBackend
@@ -240,7 +240,7 @@ def test_backend_seeding(backend_case, method_case):
 
 @pytest.fixture()
 def rng(backend_name, seed):
-    return Generator(backend_name, seed=seed)
+    return RandomGenerator(backend_name, seed=seed)
 
 
 def test_array_rng_random(rng):

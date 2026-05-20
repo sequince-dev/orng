@@ -59,7 +59,7 @@ class RNGBackend(Protocol):
 
 
 @dataclass
-class Generator:
+class RandomGenerator:
     """Facade exposing ``numpy.random.Generator``-style helpers across backends.
 
     Parameters
@@ -98,7 +98,7 @@ class Generator:
         seed: int | None = None,
         generator: Any | None = None,
         device: Any | None = None,
-    ) -> "Generator":
+    ) -> "RandomGenerator":
         return cls(
             backend=infer_backend_name_from_xp(xp),
             seed=seed,
@@ -205,7 +205,7 @@ class Generator:
         return backend, self._impl._state
 
 
-class ArrayRNG(Generator):
+class ArrayRNG(RandomGenerator):
     """Deprecated alias for :class:`Generator`."""
 
     def __post_init__(self) -> None:
@@ -219,4 +219,4 @@ class ArrayRNG(Generator):
         super().__post_init__()
 
 
-__all__ = ["ArrayRNG", "Generator"]
+__all__ = ["ArrayRNG", "RandomGenerator"]
