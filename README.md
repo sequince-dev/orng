@@ -162,7 +162,7 @@ orng/
 ├── src/orng/
 │   ├── __init__.py      # package exports
 │   ├── _utils.py        # shared helpers (internal)
-│   ├── orng.py          # Generator wrapper
+│   ├── orng.py          # RandomGenerator wrapper
 │   └── backends/        # backend-specific implementations
 └── README.md
 ```

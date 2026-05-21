@@ -1,6 +1,6 @@
 """Backend-aware random number generation helpers.
 
-This module introduces :class:`Generator`, a small facade that mimics the subset
+This module introduces :class:`RandomGenerator`, a small facade that mimics the subset
 of ``numpy.random.Generator`` APIs. The class presents a uniform interface
 across NumPy, PyTorch, CuPy, and JAX.
 """
@@ -206,7 +206,7 @@ class RandomGenerator:
 
 
 class ArrayRNG(RandomGenerator):
-    """Deprecated alias for :class:`Generator`."""
+    """Deprecated alias for :class:`RandomGenerator`."""
 
     def __post_init__(self) -> None:
         import warnings
