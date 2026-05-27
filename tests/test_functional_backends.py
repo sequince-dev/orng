@@ -258,6 +258,24 @@ def test_numpy_functional_backend_fast_state_skips_copying():
     assert sample.shape == (3,)
 
 
+def test_functional_backend_dtype_defaults_are_usable():
+    np = pytest.importorskip("numpy")
+
+    backend = create_functional_backend("numpy")
+    state = backend.init_state(seed=123, generator=None)
+
+    sample, next_state = backend.normal(
+        state,
+        loc=0.0,
+        scale=1.0,
+        size=(4,),
+    )
+
+    assert sample.shape == (4,)
+    assert sample.dtype == np.float64
+    assert next_state is not None
+
+
 def test_infer_backend_name_from_xp_numpy():
     np = pytest.importorskip("numpy")
     assert infer_backend_name_from_xp(np) == "numpy"
