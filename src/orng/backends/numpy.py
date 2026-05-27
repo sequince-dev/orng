@@ -12,7 +12,7 @@ class NumPyBackend:
         self._state = self._impl.init_state(seed=seed, generator=generator)
 
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any:
-        self._state, result = self._impl.random(
+        result, self._state = self._impl.random(
             self._state,
             size=size,
             dtype=dtype,
@@ -27,7 +27,7 @@ class NumPyBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        self._state, result = self._impl.uniform(
+        result, self._state = self._impl.uniform(
             self._state,
             low=low,
             high=high,
@@ -44,7 +44,7 @@ class NumPyBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        self._state, result = self._impl.normal(
+        result, self._state = self._impl.normal(
             self._state,
             loc=loc,
             scale=scale,
@@ -61,7 +61,7 @@ class NumPyBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        self._state, result = self._impl.gamma(
+        result, self._state = self._impl.gamma(
             self._state,
             shape=shape,
             scale=scale,
@@ -78,7 +78,7 @@ class NumPyBackend:
         replace: bool,
         probabilities: Any | None,
     ) -> Any:
-        self._state, result = self._impl.choice(
+        result, self._state = self._impl.choice(
             self._state,
             population,
             size=size,
@@ -126,10 +126,10 @@ class NumPyFunctionalBackend:
         gen.bit_generator.state = copy.deepcopy(state)
         return gen
 
-    def _next_state_and_result(self, gen: Any, result: Any) -> tuple[Any, Any]:
+    def _result_and_next_state(self, gen: Any, result: Any) -> tuple[Any, Any]:
         if self._pure:
-            return copy.deepcopy(gen.bit_generator.state), result
-        return gen, result
+            return result, copy.deepcopy(gen.bit_generator.state)
+        return result, gen
 
     def random(
         self,
@@ -140,7 +140,7 @@ class NumPyFunctionalBackend:
     ) -> tuple[Any, Any]:
         gen = self._generator_from_state(state)
         result = gen.random(size=size, dtype=dtype)
-        return self._next_state_and_result(gen, result)
+        return self._result_and_next_state(gen, result)
 
     def uniform(
         self,
@@ -155,7 +155,7 @@ class NumPyFunctionalBackend:
         result = gen.uniform(low=low, high=high, size=size)
         if dtype is not None:
             result = self._np.asarray(result, dtype=dtype)
-        return self._next_state_and_result(gen, result)
+        return self._result_and_next_state(gen, result)
 
     def normal(
         self,
@@ -170,7 +170,7 @@ class NumPyFunctionalBackend:
         result = gen.normal(loc=loc, scale=scale, size=size)
         if dtype is not None:
             result = self._np.asarray(result, dtype=dtype)
-        return self._next_state_and_result(gen, result)
+        return self._result_and_next_state(gen, result)
 
     def gamma(
         self,
@@ -185,7 +185,7 @@ class NumPyFunctionalBackend:
         result = gen.gamma(shape=shape, scale=scale, size=size)
         if dtype is not None:
             result = self._np.asarray(result, dtype=dtype)
-        return self._next_state_and_result(gen, result)
+        return self._result_and_next_state(gen, result)
 
     def choice(
         self,
@@ -203,7 +203,7 @@ class NumPyFunctionalBackend:
             replace=replace,
             p=probabilities,
         )
-        return self._next_state_and_result(gen, result)
+        return self._result_and_next_state(gen, result)
 
 
 __all__ = ["NumPyBackend", "NumPyFunctionalBackend"]

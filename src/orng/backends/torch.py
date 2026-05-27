@@ -18,7 +18,7 @@ class TorchBackend:
         self._state = self._impl.init_state(seed=seed, generator=generator)
 
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any:
-        self._state, result = self._impl.random(
+        result, self._state = self._impl.random(
             self._state,
             size=size,
             dtype=dtype,
@@ -33,7 +33,7 @@ class TorchBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        self._state, result = self._impl.uniform(
+        result, self._state = self._impl.uniform(
             self._state,
             low=low,
             high=high,
@@ -50,7 +50,7 @@ class TorchBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        self._state, result = self._impl.normal(
+        result, self._state = self._impl.normal(
             self._state,
             loc=loc,
             scale=scale,
@@ -67,7 +67,7 @@ class TorchBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        self._state, result = self._impl.gamma(
+        result, self._state = self._impl.gamma(
             self._state,
             shape=shape,
             scale=scale,
@@ -84,7 +84,7 @@ class TorchBackend:
         replace: bool,
         probabilities: Any | None,
     ) -> Any:
-        self._state, result = self._impl.choice(
+        result, self._state = self._impl.choice(
             self._state,
             population,
             size=size,
@@ -152,21 +152,21 @@ class TorchFunctionalBackend:
         gen.set_state(state.generator_state.clone())
         return gen, state.device
 
-    def _next_state_and_result(
+    def _result_and_next_state(
         self,
         gen: Any,
         state: Any,
         result: Any,
     ) -> tuple[Any, Any]:
         if not self._pure:
-            return gen, result
+            return result, gen
         state_device = getattr(state, "device", self._device)
         return (
+            result,
             TorchFunctionalState(
                 generator_state=gen.get_state().clone(),
                 device=state_device,
             ),
-            result,
         )
 
     def random(
@@ -194,7 +194,7 @@ class TorchFunctionalBackend:
                 device=device,
                 dtype=sample_dtype,
             )
-        return self._next_state_and_result(gen, state, result)
+        return self._result_and_next_state(gen, state, result)
 
     def uniform(
         self,
@@ -229,7 +229,7 @@ class TorchFunctionalBackend:
         result = low_tensor + (high_tensor - low_tensor) * base
         if not shape:
             result = result[0]
-        return self._next_state_and_result(gen, state, result)
+        return self._result_and_next_state(gen, state, result)
 
     def normal(
         self,
@@ -260,7 +260,7 @@ class TorchFunctionalBackend:
                 dtype=sample_dtype,
             )
             result = base * scale + loc
-        return self._next_state_and_result(gen, state, result)
+        return self._result_and_next_state(gen, state, result)
 
     def gamma(
         self,
@@ -300,7 +300,7 @@ class TorchFunctionalBackend:
             )
         samples = torch._standard_gamma(concentration, generator=gen)
         result = samples * scale_tensor
-        return self._next_state_and_result(gen, state, result)
+        return self._result_and_next_state(gen, state, result)
 
     def choice(
         self,
@@ -374,7 +374,7 @@ class TorchFunctionalBackend:
             result = draws.reshape(shape)
         else:
             result = draws[0]
-        return self._next_state_and_result(gen, state, result)
+        return self._result_and_next_state(gen, state, result)
 
 
 __all__ = ["TorchBackend", "TorchFunctionalBackend"]

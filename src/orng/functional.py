@@ -91,7 +91,7 @@ class FunctionalBackend(Protocol):
         *,
         size: SizeLike,
         dtype: Any | None,
-    ) -> tuple[FunctionalState, Any]: ...
+    ) -> tuple[Any, FunctionalState]: ...
 
     def uniform(
         self,
@@ -101,7 +101,7 @@ class FunctionalBackend(Protocol):
         high: Any,
         size: SizeLike,
         dtype: Any | None,
-    ) -> tuple[FunctionalState, Any]: ...
+    ) -> tuple[Any, FunctionalState]: ...
 
     def normal(
         self,
@@ -111,7 +111,7 @@ class FunctionalBackend(Protocol):
         scale: Any,
         size: SizeLike,
         dtype: Any | None,
-    ) -> tuple[FunctionalState, Any]: ...
+    ) -> tuple[Any, FunctionalState]: ...
 
     def gamma(
         self,
@@ -121,7 +121,7 @@ class FunctionalBackend(Protocol):
         scale: Any,
         size: SizeLike,
         dtype: Any | None,
-    ) -> tuple[FunctionalState, Any]: ...
+    ) -> tuple[Any, FunctionalState]: ...
 
     def choice(
         self,
@@ -131,7 +131,7 @@ class FunctionalBackend(Protocol):
         size: SizeLike,
         replace: bool,
         probabilities: Any | None,
-    ) -> tuple[FunctionalState, Any]: ...
+    ) -> tuple[Any, FunctionalState]: ...
 
 
 FunctionalFactory = Callable[..., FunctionalBackend]

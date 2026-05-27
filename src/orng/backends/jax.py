@@ -12,7 +12,7 @@ class JAXBackend:
         self._state = self._impl.init_state(seed=seed, generator=key)
 
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any:
-        self._state, result = self._impl.random(
+        result, self._state = self._impl.random(
             self._state,
             size=size,
             dtype=dtype,
@@ -27,7 +27,7 @@ class JAXBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        self._state, result = self._impl.uniform(
+        result, self._state = self._impl.uniform(
             self._state,
             low=low,
             high=high,
@@ -44,7 +44,7 @@ class JAXBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        self._state, result = self._impl.normal(
+        result, self._state = self._impl.normal(
             self._state,
             loc=loc,
             scale=scale,
@@ -61,7 +61,7 @@ class JAXBackend:
         size: SizeLike,
         dtype: Any | None,
     ) -> Any:
-        self._state, result = self._impl.gamma(
+        result, self._state = self._impl.gamma(
             self._state,
             shape=shape,
             scale=scale,
@@ -78,7 +78,7 @@ class JAXBackend:
         replace: bool,
         probabilities: Any | None,
     ) -> Any:
-        self._state, result = self._impl.choice(
+        result, self._state = self._impl.choice(
             self._state,
             population,
             size=size,
@@ -137,7 +137,7 @@ class JAXFunctionalBackend:
                 maxval=high,
                 dtype=sample_dtype,
             )[0]
-        return next_state, result
+        return result, next_state
 
     def uniform(
         self,
@@ -169,7 +169,7 @@ class JAXFunctionalBackend:
                 maxval=high_arr,
                 dtype=sample_dtype,
             )[0]
-        return next_state, result
+        return result, next_state
 
     def normal(
         self,
@@ -195,7 +195,7 @@ class JAXFunctionalBackend:
                 shape=(1,),
                 dtype=sample_dtype,
             )[0]
-        return next_state, standard * scale + loc
+        return standard * scale + loc, next_state
 
     def gamma(
         self,
@@ -222,7 +222,7 @@ class JAXFunctionalBackend:
             dtype=sample_dtype,
         )
         scaled = gamma_samples * scale_arr
-        return next_state, scaled
+        return scaled, next_state
 
     def choice(
         self,
@@ -250,7 +250,7 @@ class JAXFunctionalBackend:
             replace=replace,
             p=probs,
         )
-        return next_state, result
+        return result, next_state
 
 
 __all__ = ["JAXBackend", "JAXFunctionalBackend"]
