@@ -114,7 +114,7 @@ class JAXFunctionalBackend:
         state: Any,
         *,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         key, next_state = self._jax.random.split(state)
         shape = normalize_shape(size)
@@ -146,7 +146,7 @@ class JAXFunctionalBackend:
         low: Any,
         high: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         key, next_state = self._jax.random.split(state)
         shape = normalize_shape(size)
@@ -178,7 +178,7 @@ class JAXFunctionalBackend:
         loc: Any,
         scale: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         key, next_state = self._jax.random.split(state)
         shape = normalize_shape(size)
@@ -204,7 +204,7 @@ class JAXFunctionalBackend:
         shape: Any,
         scale: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         key, next_state = self._jax.random.split(state)
         sample_shape = normalize_shape(size)

@@ -90,7 +90,7 @@ class FunctionalBackend(Protocol):
         state: FunctionalState,
         *,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, FunctionalState]: ...
 
     def uniform(
@@ -100,7 +100,7 @@ class FunctionalBackend(Protocol):
         low: Any,
         high: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, FunctionalState]: ...
 
     def normal(
@@ -110,7 +110,7 @@ class FunctionalBackend(Protocol):
         loc: Any,
         scale: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, FunctionalState]: ...
 
     def gamma(
@@ -120,7 +120,7 @@ class FunctionalBackend(Protocol):
         shape: Any,
         scale: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, FunctionalState]: ...
 
     def choice(

@@ -136,7 +136,7 @@ class CuPyFunctionalBackend:
         state: Any,
         *,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         gen = self._generator_from_state(state)
         result = gen.random(size=size, dtype=dtype)
@@ -149,7 +149,7 @@ class CuPyFunctionalBackend:
         low: Any,
         high: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         gen = self._generator_from_state(state)
         result = gen.uniform(low=low, high=high, size=size, dtype=dtype)
@@ -162,7 +162,7 @@ class CuPyFunctionalBackend:
         loc: Any,
         scale: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         gen = self._generator_from_state(state)
         standard = gen.standard_normal(size=size, dtype=dtype)
@@ -176,7 +176,7 @@ class CuPyFunctionalBackend:
         shape: Any,
         scale: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         gen = self._generator_from_state(state)
         result = gen.gamma(shape=shape, scale=scale, size=size)

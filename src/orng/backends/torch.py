@@ -174,7 +174,7 @@ class TorchFunctionalBackend:
         state: Any,
         *,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         shape = normalize_shape(size)
         torch = self._torch
@@ -203,7 +203,7 @@ class TorchFunctionalBackend:
         low: Any,
         high: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         shape = normalize_shape(size)
         torch = self._torch
@@ -238,7 +238,7 @@ class TorchFunctionalBackend:
         loc: Any,
         scale: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         shape = normalize_shape(size)
         torch = self._torch
@@ -269,7 +269,7 @@ class TorchFunctionalBackend:
         shape: Any,
         scale: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         sample_shape = normalize_shape(size)
         torch = self._torch

@@ -136,7 +136,7 @@ class NumPyFunctionalBackend:
         state: Any,
         *,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         gen = self._generator_from_state(state)
         result = gen.random(size=size, dtype=dtype)
@@ -149,7 +149,7 @@ class NumPyFunctionalBackend:
         low: Any,
         high: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         gen = self._generator_from_state(state)
         result = gen.uniform(low=low, high=high, size=size)
@@ -164,7 +164,7 @@ class NumPyFunctionalBackend:
         loc: Any,
         scale: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         gen = self._generator_from_state(state)
         result = gen.normal(loc=loc, scale=scale, size=size)
@@ -179,7 +179,7 @@ class NumPyFunctionalBackend:
         shape: Any,
         scale: Any,
         size: SizeLike,
-        dtype: Any | None,
+        dtype: Any | None = None,
     ) -> tuple[Any, Any]:
         gen = self._generator_from_state(state)
         result = gen.gamma(shape=shape, scale=scale, size=size)
