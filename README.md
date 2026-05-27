@@ -61,12 +61,12 @@ from orng.functional import create_functional_backend
 backend = create_functional_backend("numpy")
 state = backend.init_state(seed=42, generator=None)
 
-state, x = backend.normal(state, loc=0.0, scale=1.0, size=(4,), dtype=None)
-state, y = backend.uniform(state, low=-1.0, high=1.0, size=(2, 2), dtype=None)
+x, state = backend.normal(state, loc=0.0, scale=1.0, size=(4,), dtype=None)
+y, state = backend.uniform(state, low=-1.0, high=1.0, size=(2, 2), dtype=None)
 ```
 
 Every sampling call takes an explicit `state` and returns
-`(next_state, sample)`. This avoids mutable RNG objects inside compiled code.
+`(sample, next_state)`. This avoids mutable RNG objects inside compiled code.
 
 By default this API is pure (`pure=True`). On stateful backends (`numpy`,
 `torch`, and `cupy`) this snapshots RNG state each call. For lower overhead on
@@ -76,7 +76,7 @@ those backends, you can opt into a trusted mutable fast path with
 ```python
 backend = create_functional_backend("numpy", pure=False)
 state = backend.init_state(seed=42, generator=None)  # numpy.random.Generator
-state, x = backend.normal(state, loc=0.0, scale=1.0, size=(4,), dtype=None)
+x, state = backend.normal(state, loc=0.0, scale=1.0, size=(4,), dtype=None)
 ```
 
 The JAX functional backend is always pure and does not support `pure=False`.
@@ -101,12 +101,12 @@ state = backend.init_state(seed=0, generator=None)
 
 @jax.jit
 def step(key):
-    next_key, sample = backend.normal(
+    sample, next_key = backend.normal(
         key, loc=0.0, scale=1.0, size=(8,), dtype=jnp.float32
     )
-    return next_key, sample
+    return sample, next_key
 
-state, sample = step(state)
+sample, state = step(state)
 ```
 
 ### Functional State Reference
