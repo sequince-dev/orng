@@ -83,18 +83,18 @@ def test_functional_backend_reproducibility(functional_backend_case):
     state_a = backend.init_state(seed=123, generator=None)
     state_b = backend.init_state(seed=123, generator=None)
 
-    state_a, a1 = backend.random(state_a, size=(2, 3), dtype=dtype)
-    state_b, b1 = backend.random(state_b, size=(2, 3), dtype=dtype)
+    a1, state_a = backend.random(state_a, size=(2, 3), dtype=dtype)
+    b1, state_b = backend.random(state_b, size=(2, 3), dtype=dtype)
     assert_close(a1, b1)
 
-    state_a, a2 = backend.uniform(
+    a2, state_a = backend.uniform(
         state_a,
         low=-1.0,
         high=2.0,
         size=(4,),
         dtype=dtype,
     )
-    state_b, b2 = backend.uniform(
+    b2, state_b = backend.uniform(
         state_b,
         low=-1.0,
         high=2.0,
@@ -103,14 +103,14 @@ def test_functional_backend_reproducibility(functional_backend_case):
     )
     assert_close(a2, b2)
 
-    state_a, a3 = backend.normal(
+    a3, state_a = backend.normal(
         state_a,
         loc=0.5,
         scale=1.5,
         size=(3,),
         dtype=dtype,
     )
-    state_b, b3 = backend.normal(
+    b3, state_b = backend.normal(
         state_b,
         loc=0.5,
         scale=1.5,
@@ -119,14 +119,14 @@ def test_functional_backend_reproducibility(functional_backend_case):
     )
     assert_close(a3, b3)
 
-    state_a, a4 = backend.gamma(
+    a4, state_a = backend.gamma(
         state_a,
         shape=2.0,
         scale=2.0,
         size=(2, 2),
         dtype=dtype,
     )
-    state_b, b4 = backend.gamma(
+    b4, state_b = backend.gamma(
         state_b,
         shape=2.0,
         scale=2.0,
@@ -135,14 +135,14 @@ def test_functional_backend_reproducibility(functional_backend_case):
     )
     assert_close(a4, b4)
 
-    state_a, a5 = backend.choice(
+    a5, state_a = backend.choice(
         state_a,
         [0, 1, 2, 3],
         size=(3,),
         replace=True,
         probabilities=None,
     )
-    state_b, b5 = backend.choice(
+    b5, state_b = backend.choice(
         state_b,
         [0, 1, 2, 3],
         size=(3,),
@@ -161,17 +161,17 @@ def test_jax_functional_backend_works_under_jit():
 
     @jax.jit
     def step(key):
-        next_key, sample = backend.normal(
+        sample, next_key = backend.normal(
             key,
             loc=0.0,
             scale=1.0,
             size=(8,),
             dtype=jnp.float32,
         )
-        return next_key, sample
+        return sample, next_key
 
-    state, sample_1 = step(state)
-    state, sample_2 = step(state)
+    sample_1, state = step(state)
+    sample_2, state = step(state)
     assert not bool(jnp.allclose(sample_1, sample_2))
 
 
@@ -183,21 +183,21 @@ def test_jax_functional_backend_explicit_compile():
     state = backend.init_state(seed=11, generator=None)
 
     def program(key, loc):
-        next_key, sample = backend.normal(
+        sample, next_key = backend.normal(
             key,
             loc=loc,
             scale=1.0,
             size=(4,),
             dtype=jnp.float32,
         )
-        return next_key, sample
+        return sample, next_key
 
     lowered = jax.jit(program).lower(
         state,
         jnp.asarray(0.25, dtype=jnp.float32),
     )
     compiled = lowered.compile()
-    next_state, sample = compiled(state, jnp.asarray(0.25, dtype=jnp.float32))
+    sample, next_state = compiled(state, jnp.asarray(0.25, dtype=jnp.float32))
 
     assert sample.shape == (4,)
     assert sample.dtype == jnp.float32
@@ -210,7 +210,7 @@ def test_jax_functional_backend_gamma_scalar():
     backend = create_functional_backend("jax")
     state = backend.init_state(seed=0, generator=None)
 
-    next_state, sample = backend.gamma(
+    sample, next_state = backend.gamma(
         state,
         shape=2.0,
         scale=3.0,
@@ -253,7 +253,7 @@ def test_numpy_functional_backend_fast_state_skips_copying():
     state = backend.init_state(seed=123, generator=None)
     assert isinstance(state, np.random.Generator)
 
-    next_state, sample = backend.random(state, size=(3,), dtype=np.float32)
+    sample, next_state = backend.random(state, size=(3,), dtype=np.float32)
     assert next_state is state
     assert sample.shape == (3,)
 
@@ -273,7 +273,7 @@ def test_create_functional_backend_from_xp_jax_is_pure():
 
     backend = create_functional_backend_from_xp(jnp)
     state = backend.init_state(seed=0, generator=None)
-    next_state, sample = backend.normal(
+    sample, next_state = backend.normal(
         state,
         loc=0.0,
         scale=1.0,
