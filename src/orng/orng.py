@@ -213,7 +213,7 @@ class ArrayRNG(RandomGenerator):
 
         warnings.warn(
             "ArrayRNG is deprecated and will be removed in a future release. "
-            "Please use orng.Generator instead.",
+            "Please use orng.RandomGenerator instead.",
             FutureWarning,
         )
         super().__post_init__()
