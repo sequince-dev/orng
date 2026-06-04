@@ -1,7 +1,7 @@
 # Omni RNG (`orng`)
 
 `orng` provides a thin wrapper over several Array API–compatible random number
-generators. It mirrors the subset of the `numpy.random.Generator` API:
+generators. It mirrors a subset of the `numpy.random.Generator` API:
 
 - `random`
 - `uniform`
@@ -19,13 +19,13 @@ currently supported:
 
 ## Installation
 
-The core package only depends on the standard Python library:
+`orng` can be install from PyPI using `pip`:
 
 ```bash
 pip install orng
 ```
 
-Backends are optional extras that you can install on demand:
+Backends are optional extras that you can install as needed:
 
 ```bash
 pip install "orng[numpy]"   # NumPy RNG support
@@ -76,7 +76,7 @@ those backends, you can opt into a trusted mutable fast path with
 ```python
 backend = create_functional_backend("numpy", pure=False)
 state = backend.init_state(seed=42, generator=None)  # numpy.random.Generator
-x, state = backend.normal(state, loc=0.0, scale=1.0, size=(4,), dtype=None)
+x, state = backend.normal(state, loc=0.0, scale=1.0, size=(4,))
 ```
 
 The JAX functional backend is always pure and does not support `pure=False`.
@@ -155,17 +155,6 @@ object depends on the backend:
 
 This lets you wrap an existing RNG/key instead of seeding a new one.
 
-## Project Layout
+## Citing
 
-```
-orng/
-├── src/orng/
-│   ├── __init__.py      # package exports
-│   ├── _utils.py        # shared helpers (internal)
-│   ├── orng.py          # RandomGenerator wrapper
-│   └── backends/        # backend-specific implementations
-└── README.md
-```
-
-Each backend class lives in its own module under `orng/backends/`, keeping the
-core facade compact and making optional dependencies easy to manage.
+If you find `orng` useful in your work, please cite the corresponding [DOI](https://doi.org/10.5281/zenodo.17544786).
