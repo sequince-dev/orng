@@ -7,6 +7,7 @@ across NumPy, PyTorch, CuPy, and JAX.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -18,6 +19,10 @@ class RNGBackend(Protocol):
     """Protocol representing the shim each backend must implement."""
 
     _state: Any
+
+    def state_dict(self) -> dict[str, Any]: ...
+
+    def load_state_dict(self, state: Mapping[str, Any]) -> None: ...
 
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any: ...
 
@@ -204,6 +209,41 @@ class RandomGenerator:
         )
         return backend, self._impl._state
 
+    def state_dict(self) -> dict[str, Any]:
+        """Return a detached, versioned snapshot of the generator state."""
+        backend = self.backend.lower()
+        if backend == "pytorch":
+            backend = "torch"
+        return {
+            "version": 1,
+            "backend": backend,
+            "state": self._impl.state_dict(),
+        }
+
+    def load_state_dict(self, state: Mapping[str, Any]) -> None:
+        """Restore this generator from :meth:`state_dict` output."""
+        _, backend, backend_state = _validate_state_dict(state)
+        current_backend = self.backend.lower()
+        if current_backend == "pytorch":
+            current_backend = "torch"
+        if backend != current_backend:
+            raise ValueError(
+                f"Cannot load '{backend}' RNG state into a "
+                f"'{current_backend}' generator."
+            )
+        self._impl.load_state_dict(backend_state)
+        if backend == "torch":
+            self.device = backend_state.get("device")
+
+    @classmethod
+    def from_state_dict(cls, state: Mapping[str, Any]) -> "RandomGenerator":
+        """Construct a generator from :meth:`state_dict` output."""
+        _, backend, backend_state = _validate_state_dict(state)
+        device = backend_state.get("device") if backend == "torch" else None
+        rng = cls(backend=backend, device=device)
+        rng._impl.load_state_dict(backend_state)
+        return rng
+
 
 class ArrayRNG(RandomGenerator):
     """Deprecated alias for :class:`RandomGenerator`."""
@@ -217,6 +257,34 @@ class ArrayRNG(RandomGenerator):
             FutureWarning,
         )
         super().__post_init__()
+
+
+def _validate_state_dict(
+    state: Mapping[str, Any],
+) -> tuple[int, str, Mapping[str, Any]]:
+    if not isinstance(state, Mapping):
+        raise TypeError("ORNG state must be a mapping.")
+    missing = {
+        key for key in ("version", "backend", "state") if key not in state
+    }
+    if missing:
+        raise ValueError(
+            "ORNG state is missing required keys: "
+            + ", ".join(sorted(missing))
+        )
+    version = state["version"]
+    if version != 1:
+        raise ValueError(f"Unsupported ORNG state version {version!r}.")
+    backend = state["backend"]
+    if not isinstance(backend, str):
+        raise TypeError("ORNG state 'backend' must be a string.")
+    backend = backend.lower()
+    if backend == "pytorch":
+        backend = "torch"
+    backend_state = state["state"]
+    if not isinstance(backend_state, Mapping):
+        raise TypeError("ORNG backend state must be a mapping.")
+    return version, backend, backend_state
 
 
 __all__ = ["ArrayRNG", "RandomGenerator"]

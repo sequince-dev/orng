@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from collections.abc import Mapping
 from typing import Any
 
 from .._utils import SizeLike
@@ -86,6 +87,35 @@ class NumPyBackend:
             probabilities=probabilities,
         )
         return result
+
+    def state_dict(self) -> dict[str, Any]:
+        generator = self._state
+        return {
+            "bit_generator": type(generator.bit_generator).__name__,
+            "bit_generator_state": copy.deepcopy(
+                generator.bit_generator.state
+            ),
+        }
+
+    def load_state_dict(self, state: Mapping[str, Any]) -> None:
+        try:
+            bit_generator_name = state["bit_generator"]
+            bit_generator_state = state["bit_generator_state"]
+        except KeyError as exc:
+            raise ValueError(
+                "NumPy RNG state requires 'bit_generator' and "
+                "'bit_generator_state'."
+            ) from exc
+        bit_generator_cls = getattr(
+            self._impl._np.random, bit_generator_name, None
+        )
+        if bit_generator_cls is None:
+            raise ValueError(
+                f"Unknown NumPy bit generator '{bit_generator_name}'."
+            )
+        bit_generator = bit_generator_cls()
+        bit_generator.state = copy.deepcopy(bit_generator_state)
+        self._state = self._impl._np.random.Generator(bit_generator)
 
 
 class NumPyFunctionalBackend:

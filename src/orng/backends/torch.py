@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -92,6 +93,26 @@ class TorchBackend:
             probabilities=probabilities,
         )
         return result
+
+    def state_dict(self) -> dict[str, Any]:
+        generator = self._state
+        return {
+            "generator_state": generator.get_state().clone(),
+            "device": str(getattr(generator, "device", self._impl._device)),
+        }
+
+    def load_state_dict(self, state: Mapping[str, Any]) -> None:
+        try:
+            generator_state = state["generator_state"]
+        except KeyError as exc:
+            raise ValueError(
+                "Torch RNG state requires 'generator_state'."
+            ) from exc
+        device = state.get("device") or "cpu"
+        self._impl._device = self._impl._torch.device(device)
+        generator = self._impl._torch.Generator(device=device)
+        generator.set_state(generator_state.clone())
+        self._state = generator
 
 
 @dataclass(frozen=True)

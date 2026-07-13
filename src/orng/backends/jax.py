@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import secrets
+from collections.abc import Mapping
 from typing import Any
 
 from .._utils import SizeLike, normalize_shape
@@ -86,6 +87,29 @@ class JAXBackend:
             probabilities=probabilities,
         )
         return result
+
+    def state_dict(self) -> dict[str, Any]:
+        return {
+            "key_data": self._impl._jnp.array(
+                self._impl._jax.random.key_data(self._state)
+            ),
+            "implementation": str(
+                self._impl._jax.random.key_impl(self._state)
+            ),
+        }
+
+    def load_state_dict(self, state: Mapping[str, Any]) -> None:
+        try:
+            key_data = state["key_data"]
+            implementation = state["implementation"]
+        except KeyError as exc:
+            raise ValueError(
+                "JAX RNG state requires 'key_data' and 'implementation'."
+            ) from exc
+        self._state = self._impl._jax.random.wrap_key_data(
+            self._impl._jnp.array(key_data),
+            impl=implementation,
+        )
 
 
 class JAXFunctionalBackend:
