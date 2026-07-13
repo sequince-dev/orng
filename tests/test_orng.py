@@ -286,14 +286,64 @@ def test_array_rng_to_functional_forwards_pure(monkeypatch):
 
     monkeypatch.setattr(
         "orng.functional.create_functional_backend",
-        lambda name, pure: captured.update({"name": name, "pure": pure})
-        or DummyFunctionalBackend(),
+        lambda name, pure: (
+            captured.update({"name": name, "pure": pure})
+            or DummyFunctionalBackend()
+        ),
     )
 
     rng = RandomGenerator(backend="numpy", seed=123)
     rng.to_functional(pure=False)
 
     assert captured == {"name": "numpy", "pure": False}
+
+
+def test_random_generator_state_dict_is_detached():
+    np = pytest.importorskip("numpy")
+    rng = RandomGenerator(backend="numpy", seed=123)
+    rng.normal(size=3)
+
+    state = rng.state_dict()
+    expected = RandomGenerator.from_state_dict(state).normal(size=4)
+    rng.normal(size=20)
+    actual = RandomGenerator.from_state_dict(state).normal(size=4)
+
+    np.testing.assert_allclose(actual, expected)
+
+
+@pytest.mark.parametrize(
+    ("state", "error", "match"),
+    [
+        ({}, ValueError, "missing required keys"),
+        (
+            {"version": 99, "backend": "numpy", "state": {}},
+            ValueError,
+            "Unsupported ORNG state version",
+        ),
+        (
+            {"version": 1, "backend": 1, "state": {}},
+            TypeError,
+            "backend.*string",
+        ),
+        (
+            {"version": 1, "backend": "numpy", "state": "bad"},
+            TypeError,
+            "backend state.*mapping",
+        ),
+    ],
+)
+def test_random_generator_rejects_invalid_state(state, error, match):
+    with pytest.raises(error, match=match):
+        RandomGenerator.from_state_dict(state)
+
+
+def test_random_generator_rejects_state_for_different_backend():
+    rng = RandomGenerator(backend="numpy", seed=123)
+    state = rng.state_dict()
+    state["backend"] = "jax"
+
+    with pytest.raises(ValueError, match="Cannot load 'jax'"):
+        rng.load_state_dict(state)
 
 
 def test_numpy_backend_import_error_mentions_extra(monkeypatch):
