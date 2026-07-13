@@ -50,6 +50,25 @@ The backend module is imported lazily. If the requested library is missing,
 `RandomGenerator` will raise an informative `ImportError` that points to the matching
 extra.
 
+## Saving and restoring state
+
+`RandomGenerator` exposes a versioned state mapping for checkpointing:
+
+```python
+state = rng.state_dict()
+
+restored = RandomGenerator.from_state_dict(state)
+assert restored.backend == rng.backend
+```
+
+An existing generator can also be reset in place:
+
+```python
+rng.load_state_dict(state)
+```
+
+The returned mapping is detached from the live generator. It contains native backend arrays where applicable.
+
 ## Functional Backend API
 
 For JAX and other functional workflows, `orng` also provides a pure API in
