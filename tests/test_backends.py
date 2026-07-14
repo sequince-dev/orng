@@ -258,6 +258,29 @@ def test_array_rng_normal(rng):
     assert x.shape == (4, 4)
 
 
+def test_random_generator_state_round_trip(rng, backend_case):
+    rng.normal(size=(3, 2))
+    state = rng.state_dict()
+
+    expected = rng.normal(size=(4, 3))
+    restored = RandomGenerator.from_state_dict(state)
+    actual = restored.normal(size=(4, 3))
+
+    backend_case["assert_close"](actual, expected)
+
+
+def test_random_generator_load_state_dict(rng, backend_case):
+    rng.uniform(size=(5,))
+    state = rng.state_dict()
+    expected = rng.uniform(size=(5,))
+
+    rng.uniform(size=(5,))
+    rng.load_state_dict(state)
+    actual = rng.uniform(size=(5,))
+
+    backend_case["assert_close"](actual, expected)
+
+
 def test_array_rng_gamma(rng):
     x = rng.gamma(shape=2.0, scale=2.0, size=(6, 2))
     assert x.shape == (6, 2)
