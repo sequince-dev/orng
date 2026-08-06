@@ -88,6 +88,14 @@ class JAXBackend:
         )
         return result
 
+    def state(self) -> Any:
+        """Return the current JAX random key."""
+        return self._state
+
+    def set_state(self, state: Any) -> None:
+        """Replace the current JAX random key."""
+        self._state = self._impl.init_state(seed=None, generator=state)
+
     def state_dict(self) -> dict[str, Any]:
         return {
             "key_data": self._impl._jnp.array(

@@ -13,12 +13,15 @@ from typing import Any, Protocol
 
 from ._utils import SizeLike
 from .backends import create_backend, infer_backend_name_from_xp
+from .functional import FunctionalState
 
 
 class RNGBackend(Protocol):
     """Protocol representing the shim each backend must implement."""
 
-    _state: Any
+    def state(self) -> FunctionalState: ...
+
+    def set_state(self, state: FunctionalState) -> None: ...
 
     def state_dict(self) -> dict[str, Any]: ...
 
@@ -119,8 +122,6 @@ class RandomGenerator:
             device=self.device,
         )
 
-    # Public API -----------------------------------------------------------------
-
     def random(
         self,
         size: SizeLike = None,
@@ -207,7 +208,19 @@ class RandomGenerator:
             self.backend,
             pure=pure,
         )
-        return backend, self._impl._state
+        return backend, self.state()
+
+    def state(self) -> FunctionalState:
+        """Return the current backend-native random state.
+
+        This may be a mutable generator object. Use :meth:`state_dict` when a
+        detached snapshot is required.
+        """
+        return self._impl.state()
+
+    def set_state(self, state: FunctionalState) -> None:
+        """Replace the current backend-native random state."""
+        self._impl.set_state(state)
 
     def state_dict(self) -> dict[str, Any]:
         """Return a detached, versioned snapshot of the generator state."""
