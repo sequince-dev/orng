@@ -94,6 +94,15 @@ class TorchBackend:
         )
         return result
 
+    def state(self) -> Any:
+        """Return the current backend-native generator state."""
+        return self._state
+
+    def set_state(self, state: Any) -> None:
+        """Replace the current backend-native generator state."""
+        self._state = self._impl.init_state(seed=None, generator=state)
+        self._impl._device = getattr(state, "device", self._impl._device)
+
     def state_dict(self) -> dict[str, Any]:
         generator = self._state
         return {
