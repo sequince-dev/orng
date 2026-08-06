@@ -259,7 +259,7 @@ def test_array_rng_to_functional(monkeypatch):
     functional_backend, state = rng.to_functional()
 
     assert functional_backend is backend
-    assert state is rng._impl._state
+    assert state is rng.state()
 
 
 def test_array_rng_to_functional_forwards_pure(monkeypatch):

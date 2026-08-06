@@ -281,6 +281,20 @@ def test_random_generator_load_state_dict(rng, backend_case):
     backend_case["assert_close"](actual, expected)
 
 
+def test_random_generator_set_state(rng, backend_case):
+    backend_name = backend_case["name"]
+    source = RandomGenerator(backend_name, seed=987)
+    expected_source = RandomGenerator(backend_name, seed=987)
+    state = source.state()
+
+    rng.set_state(state)
+    assert rng.state() is state
+    actual = rng.normal(size=(4, 3))
+    expected = expected_source.normal(size=(4, 3))
+
+    backend_case["assert_close"](actual, expected)
+
+
 def test_array_rng_gamma(rng):
     x = rng.gamma(shape=2.0, scale=2.0, size=(6, 2))
     assert x.shape == (6, 2)
