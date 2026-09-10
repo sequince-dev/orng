@@ -262,7 +262,7 @@ class CuPyFunctionalBackend:
                 else int(cp.prod(cp.asarray(target_size)))
             )
             if probs is None:
-                indices = gen.permutation(n)[:flat_k]
+                indices = cp.argsort(gen.random(n, dtype=cp.float64))[:flat_k]
             else:
                 gumbels = -cp.log(-cp.log(gen.random(n)))
                 keys = cp.log(probs) + gumbels
