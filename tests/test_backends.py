@@ -12,6 +12,9 @@ from orng.backends.torch import TorchBackend
 @pytest.fixture(params=["numpy", "torch", "cupy", "jax"])
 def backend_name(request):
     if request.param == "cupy":
+        if request.config.getoption("--fake-cupy"):
+            request.getfixturevalue("numpy_cupy")
+            return "cupy"
         cupy = pytest.importorskip("cupy")
         try:
             cupy.cuda.runtime.getDeviceCount()
@@ -103,10 +106,6 @@ def backend_case(backend_name):
 
     if name == "cupy":
         cp = pytest.importorskip("cupy")
-        try:
-            cp.cuda.runtime.getDeviceCount()
-        except cp.cuda.runtime.CUDARuntimeError as exc:
-            pytest.skip(f"CuPy runtime unavailable: {exc}")
 
         def new_backend(seed):
             return CuPyBackend(seed=seed, generator=None)
@@ -121,7 +120,7 @@ def backend_case(backend_name):
             cp.testing.assert_allclose(a, b)
 
         def to_list(arr):
-            return arr.get().tolist()
+            return cp.asnumpy(arr).tolist()
 
         return {
             "name": name,
@@ -312,17 +311,10 @@ def test_array_rng_choice(rng):
     assert all(v in [10, 20, 30] for v in x.flatten())
 
 
-def test_cupy_choice_with_probabilities_and_no_replacement():
-    cp = pytest.importorskip("cupy")
-    try:
-        cp.cuda.runtime.getDeviceCount()
-    except (ImportError, cp.cuda.runtime.CUDARuntimeError) as exc:
-        pytest.skip(f"CuPy runtime unavailable: {exc}")
-
-    backend = CuPyBackend(seed=123, generator=None)
-
-    values = cp.array([1, 2, 3, 4], dtype=cp.int32)
-    probs = cp.array([0.7, 0.1, 0.1, 0.1], dtype=cp.float32)
+def test_choice_with_probabilities_and_no_replacement(backend_case):
+    backend = backend_case["new_backend"](123)
+    values = [1, 2, 3, 4]
+    probs = [0.7, 0.1, 0.1, 0.1]
 
     draws = backend.choice(
         values,
@@ -330,9 +322,10 @@ def test_cupy_choice_with_probabilities_and_no_replacement():
         replace=True,
         probabilities=probs,
     )
-    assert isinstance(draws, cp.ndarray)
-    assert draws.shape == (2, 3)
-    assert cp.isin(draws, values).all()
+    backend_case["assert_array"](draws, shape=(2, 3), dtype=None)
+    assert all(
+        value in values for value in backend_case["to_list"](draws.reshape(-1))
+    )
 
     without_replacement = backend.choice(
         values,
@@ -340,6 +333,5 @@ def test_cupy_choice_with_probabilities_and_no_replacement():
         replace=False,
         probabilities=None,
     )
-    assert isinstance(without_replacement, cp.ndarray)
-    assert without_replacement.shape == (3,)
-    assert cp.unique(without_replacement).size == 3
+    backend_case["assert_array"](without_replacement, shape=(3,), dtype=None)
+    assert len(set(backend_case["to_list"](without_replacement))) == 3

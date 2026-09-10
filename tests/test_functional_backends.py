@@ -30,7 +30,10 @@ def _check_backend_available(name: str) -> None:
 @pytest.fixture(params=["numpy", "torch", "jax", "cupy"])
 def functional_backend_case(request):
     name = request.param
-    _check_backend_available(name)
+    if name == "cupy" and request.config.getoption("--fake-cupy"):
+        request.getfixturevalue("numpy_cupy")
+    else:
+        _check_backend_available(name)
     backend = create_functional_backend(name)
 
     if name == "numpy":
