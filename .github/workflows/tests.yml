@@ -35,3 +35,33 @@ jobs:
     - name: Test with pytest
       run: |
         python -m pytest
+
+  cupy-api:
+    name: CuPy ${{ matrix.cupy-version }} API (CPU stub build)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cupy-version: ["12.*", "13.*", "14.*"]
+    env:
+      CUPY_INSTALL_USE_STUB: "1"
+      # Compatibility for CuPy 12; remove when support for 12 is dropped.
+      READTHEDOCS: "True"
+      CUPY_NUM_BUILD_JOBS: "2"
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+        cache: pip
+        cache-dependency-path: |
+          pyproject.toml
+          .github/workflows/tests.yml
+    - name: Install CuPy without CUDA
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install --no-binary=cupy -e '.[numpy]' --group test "cupy==${{ matrix.cupy-version }}"
+    - name: Inspect CuPy and test the NumPy wrapper
+      run: |
+        python -c "import cupy; assert callable(cupy.random.Generator.random)"
+        python -m pytest -q tests/test_backends.py tests/test_functional_backends.py --fake-cupy -k cupy
