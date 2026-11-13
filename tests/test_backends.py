@@ -356,7 +356,7 @@ def sampling_namespace(backend_name: str) -> Any:
     ],
     ids=["integers", "permutation", "exponential", "poisson"],
 )
-def new_sampling_method(request: Any) -> tuple[str, tuple, dict]:
+def sampling_method(request: Any) -> tuple[str, tuple, dict]:
     return request.param
 
 
@@ -369,11 +369,11 @@ def _host_array(value: Any, name: str) -> Any:
     return np.asarray(value)
 
 
-def test_new_methods_checkpoint_and_state_advancement(
-    backend_name: str, new_sampling_method: tuple[str, tuple, dict]
+def test_sampling_methods_checkpoint_and_state_advancement(
+    backend_name: str, sampling_method: tuple[str, tuple, dict]
 ) -> None:
     np = import_module("numpy")
-    method, args, kwargs = new_sampling_method
+    method, args, kwargs = sampling_method
     rng = RandomGenerator(backend_name, seed=723)
     snapshot = rng.state_dict()
     first = getattr(rng, method)(*args, **kwargs)
@@ -395,9 +395,9 @@ def test_new_methods_checkpoint_and_state_advancement(
 
 
 @pytest.mark.parametrize("pure", [True, False])
-def test_new_functional_methods_thread_the_managed_state(
+def test_functional_sampling_methods_thread_the_managed_state(
     backend_name: str,
-    new_sampling_method: tuple[str, tuple, dict],
+    sampling_method: tuple[str, tuple, dict],
     pure: bool,
 ) -> None:
     from orng.functional import create_functional_backend
@@ -405,7 +405,7 @@ def test_new_functional_methods_thread_the_managed_state(
     if backend_name == "jax" and not pure:
         pytest.skip("JAX has no mutable functional mode.")
     np = import_module("numpy")
-    method, args, kwargs = new_sampling_method
+    method, args, kwargs = sampling_method
     backend = create_functional_backend(backend_name, pure=pure)
     state = backend.init_state(seed=723, generator=None)
     call = getattr(backend, method)
@@ -472,7 +472,7 @@ def test_integers_rejects_noninteger_and_overflowing_bounds(
 @pytest.mark.parametrize(
     "method,param", [("exponential", "scale"), ("poisson", "lam")]
 )
-def test_new_distributions_broadcast_to_output_shape(
+def test_distributions_broadcast_to_output_shape(
     rng: RandomGenerator, sampling_namespace: Any, method: str, param: str
 ) -> None:
     xp = sampling_namespace
@@ -502,7 +502,7 @@ def test_new_distributions_broadcast_to_output_shape(
     "method,param", [("exponential", "scale"), ("poisson", "lam")]
 )
 @pytest.mark.parametrize("value", [-1.0, float("nan"), float("inf")])
-def test_new_distributions_reject_invalid_scalar_parameters(
+def test_distributions_reject_invalid_scalar_parameters(
     rng: RandomGenerator, method: str, param: str, value: float
 ) -> None:
     with pytest.raises(ValueError, match="finite and non-negative"):
@@ -510,7 +510,7 @@ def test_new_distributions_reject_invalid_scalar_parameters(
 
 
 @pytest.mark.parametrize("method", ["integers", "poisson", "exponential"])
-def test_new_distributions_reject_invalid_dtypes(
+def test_distributions_reject_invalid_dtypes(
     rng: RandomGenerator, sampling_namespace: Any, method: str
 ) -> None:
     kwargs = {"low": 3} if method == "integers" else {}
@@ -551,7 +551,7 @@ def test_permutation_preserves_slices_and_input(
         )
 
 
-def test_new_distribution_moments(rng: RandomGenerator) -> None:
+def test_sampling_distribution_moments(rng: RandomGenerator) -> None:
     np = import_module("numpy")
     n = 30000
     integers = _host_array(rng.integers(-2, 4, size=n), rng.backend)
@@ -567,7 +567,7 @@ def test_new_distribution_moments(rng: RandomGenerator) -> None:
     assert abs(poisson.var() - 4.0) < 0.3
 
 
-def test_jax_new_methods_compile_with_dynamic_parameters() -> None:
+def test_jax_sampling_methods_compile_with_dynamic_parameters() -> None:
     jax = pytest.importorskip("jax")
     jnp = pytest.importorskip("jax.numpy")
     from orng.functional import create_functional_backend
@@ -601,7 +601,7 @@ def test_jax_new_methods_compile_with_dynamic_parameters() -> None:
 
 
 @pytest.mark.parametrize("enabled", [False, True])
-def test_jax_new_methods_respect_x64_configuration(enabled: bool) -> None:
+def test_jax_sampling_methods_respect_x64_configuration(enabled: bool) -> None:
     jax = pytest.importorskip("jax")
     jnp = pytest.importorskip("jax.numpy")
     previous = jax.config.x64_enabled
@@ -630,7 +630,7 @@ def test_jax_new_methods_respect_x64_configuration(enabled: bool) -> None:
 
 
 @pytest.mark.parametrize("dtype_name", ["int64", "float64"])
-def test_new_methods_support_64_bit_dtypes(
+def test_sampling_methods_support_64_bit_dtypes(
     rng: RandomGenerator, sampling_namespace: Any, dtype_name: str
 ) -> None:
     if rng.backend == "jax":
@@ -670,13 +670,13 @@ def test_cupy_permutation_retries_tied_keys(monkeypatch: Any) -> None:
     assert next_state is state
 
 
-def test_torch_new_methods_keep_samples_on_cuda(
-    new_sampling_method: tuple[str, tuple, dict],
+def test_torch_sampling_methods_keep_samples_on_cuda(
+    sampling_method: tuple[str, tuple, dict],
 ) -> None:
     torch = pytest.importorskip("torch")
     if not torch.cuda.is_available():
         pytest.skip("PyTorch CUDA is unavailable.")
-    method, args, kwargs = new_sampling_method
+    method, args, kwargs = sampling_method
     rng = RandomGenerator("torch", seed=723, device="cuda")
     result = getattr(rng, method)(*args, **kwargs)
     assert result.device.type == "cuda"
