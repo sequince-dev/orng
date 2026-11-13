@@ -49,9 +49,6 @@ rng = RandomGenerator(backend="numpy", seed=42)
 samples = rng.normal(loc=0.0, scale=1.0, size=5)
 uniform = rng.uniform(low=-1.0, high=1.0, size=(2, 2))
 indices = rng.integers(0, 10, size=5)
-shuffled = rng.permutation(10)
-waiting_times = rng.exponential(scale=2.0, size=5)
-counts = rng.poisson(lam=3.0, size=5)
 ```
 
 The backend module is imported lazily. If the requested library is missing,
@@ -119,41 +116,6 @@ Supported functional methods:
 - `permutation`
 - `exponential`
 - `poisson`
-
-`integers(low, high=None, size=None, dtype=None)` uses scalar integer bounds
-and a half-open interval: `low` is inclusive and `high` is exclusive. With
-only one bound, it samples from zero up to that bound. Both bounds must fit
-in the requested signed `int32` or `int64` dtype. Array-valued bounds and the
-NumPy `endpoint` option are not supported.
-
-`permutation(x, axis=0)` returns a shuffled copy of an array, or a permuted
-`arange(x)` for a non-negative integer. It applies the same permutation to all
-slices along the selected axis and preserves the input array's dtype.
-
-For `exponential(scale=1.0, size=None, dtype=None)` and
-`poisson(lam=1.0, size=None, dtype=None)`, `size` specifies the full output
-shape, and parameter arrays must broadcast to that shape. When `size=None`,
-the parameter shape determines the output. Scale and rate parameters must
-be finite and non-negative; zero produces zero samples. Poisson rates must
-remain below the output integer limit with a ten-standard-deviation margin.
-Exponential uses the scale (mean), rather than its reciprocal rate, and supports
-`float32` and `float64` output. Poisson supports `int32` and `int64` output.
-
-The new integer-valued methods default to `int64` on NumPy, CuPy, and PyTorch;
-JAX follows its X64 configuration. Exponential defaults to `float64` on NumPy
-and CuPy and `float32` on PyTorch and JAX. Explicit 64-bit dtypes on JAX require
-X64 mode. Under JAX `jit`, integer bounds, output shapes, and permutation axes
-must be static; array-valued scale and rate parameters can be dynamic and must
-satisfy their constraints before the compiled call.
-
-The functional versions take `state` first and return `(sample, next_state)`:
-
-```python
-indices, state = backend.integers(state, low=0, high=10, size=(5,))
-shuffled, state = backend.permutation(state, 10)
-waiting_times, state = backend.exponential(state, scale=2.0, size=(5,))
-counts, state = backend.poisson(state, lam=3.0, size=(5,))
-```
 
 ### JAX Compilation Example
 
