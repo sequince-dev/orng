@@ -174,40 +174,11 @@ object depends on the backend:
 
 This lets you wrap an existing RNG/key instead of seeding a new one.
 
-## Development
+## Contributing
 
-Use [Pixi](https://pixi.prefix.dev/latest/installation/) for development:
-
-```bash
-pixi install
-pixi run pre-commit install
-pixi run pre-commit run --all-files
-pixi run test
-```
-
-The default environment installs ORNG in editable mode with NumPy and the test
-and lint tools. Run `pixi run lint`, `pixi run format-check`, or
-`pixi run typecheck` for individual checks. Pixi generates `pixi.lock` locally;
-the lock file and environments are ignored by Git.
-
-Additional environments cover Python versions and optional backends:
-
-```bash
-pixi run -e py310 test  # Also available: py311, py312, py313
-pixi run -e jax test
-pixi run -e torch test
-pixi run -e all-backends test  # NumPy, JAX, and CPU PyTorch
-```
-
-CuPy environments require a compatible NVIDIA GPU and driver on Linux:
-
-```bash
-pixi run -e cupy-cuda12 check-cupy
-pixi run -e cupy-cuda12 test
-# For CUDA 13, use cupy-cuda13 instead.
-```
-
-A skipped backend test does not verify that backend.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, checks, and release guidelines,
+and [AI_POLICY.md](AI_POLICY.md) for guidance on AI-assisted contributions.
+Release notes are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Citing
 
