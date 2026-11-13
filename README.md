@@ -209,6 +209,12 @@ pixi run -e cupy-cuda12 test
 
 A skipped backend test does not verify that backend.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution and release guidelines,
+and [AI_POLICY.md](AI_POLICY.md) for guidance on AI-assisted contributions.
+Release notes are in [CHANGELOG.md](CHANGELOG.md).
+
 ## Citing
 
 If you find `orng` useful in your work, please cite the corresponding [DOI](https://doi.org/10.5281/zenodo.17544786).
