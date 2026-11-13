@@ -146,6 +146,9 @@ Pre-commit covers Ruff linting and formatting, mypy type checking, spelling,
 whitespace, YAML validation, and large-file checks. It does not run the test
 suite, so run pytest separately with `pixi run test`.
 
+Run individual lint and formatting checks with `pixi run lint` and
+`pixi run format-check`. Use `pixi run typecheck` for mypy.
+
 Pre-commit may modify files to fix formatting or other issues. Review those
 changes, stage the relevant files, and rerun the checks before committing.
 Configuration in `.pre-commit-config.yaml` and `pyproject.toml` is authoritative.
@@ -168,7 +171,8 @@ reproducibility within each backend, detached checkpoint round trips, and
 identical random samples across different backends. Exercise JAX compilation
 when changing functional operations used under `jit`.
 
-The default environment includes NumPy. Use the configured environments for
+The default environment includes NumPy. NumPy-only environments are available
+as `py310`, `py311`, `py312`, and `py313`. Use the configured environments for
 changes affecting optional backends:
 
 ```bash
