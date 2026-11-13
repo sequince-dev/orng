@@ -23,8 +23,13 @@ jobs:
           pixi-version: v0.78.0
           manifest-path: pyproject.toml
           run-install: false
+      - name: Resolve development environments
+        env:
+          # Resolve the CUDA environments on this CPU-only runner.
+          CONDA_OVERRIDE_CUDA: "13"
+        run: pixi lock
       - name: Lint
-        run: pixi run lint
+        run: pixi run --locked lint
       - name: Check formatting
         run: pixi run --locked format-check
       - name: Type check
