@@ -2,15 +2,49 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Mapping
+from numbers import Integral
 from typing import Any
 
-from .._utils import SizeLike
+from .._utils import (
+    SizeLike,
+    integer_bounds,
+    normalize_axis,
+    normalize_shape,
+    poisson_rate_limit,
+    validate_nonnegative_scalar,
+)
 
 
 class NumPyBackend:
     def __init__(self, *, seed: int | None, generator: Any | None) -> None:
         self._impl = NumPyFunctionalBackend(pure=False)
         self._state = self._impl.init_state(seed=seed, generator=generator)
+
+    def integers(
+        self, *, low: int, high: int | None, size: SizeLike, dtype: Any | None
+    ) -> Any:
+        result, self._state = self._impl.integers(
+            self._state, low=low, high=high, size=size, dtype=dtype
+        )
+        return result
+
+    def permutation(self, x: int | Any, *, axis: int) -> Any:
+        result, self._state = self._impl.permutation(self._state, x, axis=axis)
+        return result
+
+    def exponential(
+        self, *, scale: Any, size: SizeLike, dtype: Any | None
+    ) -> Any:
+        result, self._state = self._impl.exponential(
+            self._state, scale=scale, size=size, dtype=dtype
+        )
+        return result
+
+    def poisson(self, *, lam: Any, size: SizeLike, dtype: Any | None) -> Any:
+        result, self._state = self._impl.poisson(
+            self._state, lam=lam, size=size, dtype=dtype
+        )
+        return result
 
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any:
         result, self._state = self._impl.random(
@@ -168,6 +202,88 @@ class NumPyFunctionalBackend:
         if self._pure:
             return result, copy.deepcopy(gen.bit_generator.state)
         return result, gen
+
+    def integers(
+        self,
+        state: Any,
+        *,
+        low: int,
+        high: int | None = None,
+        size: SizeLike = None,
+        dtype: Any | None = None,
+    ) -> tuple[Any, Any]:
+        xp = self._np
+        sample_dtype = xp.dtype(dtype if dtype is not None else xp.int64)
+        if sample_dtype not in (xp.dtype(xp.int32), xp.dtype(xp.int64)):
+            raise TypeError("dtype must be int32 or int64.")
+        limits = xp.iinfo(sample_dtype)
+        low, high = integer_bounds(low, high, int(limits.min), int(limits.max))
+        gen = self._generator_from_state(state)
+        result = gen.integers(
+            low, high, size=normalize_shape(size), dtype=sample_dtype
+        )
+        return self._result_and_next_state(gen, result)
+
+    def exponential(
+        self,
+        state: Any,
+        *,
+        scale: Any = 1.0,
+        size: SizeLike = None,
+        dtype: Any | None = None,
+    ) -> tuple[Any, Any]:
+        xp = self._np
+        sample_dtype = xp.dtype(dtype if dtype is not None else xp.float64)
+        if sample_dtype not in (xp.dtype(xp.float32), xp.dtype(xp.float64)):
+            raise TypeError("dtype must be float32 or float64.")
+        validate_nonnegative_scalar(scale, "scale")
+        parameter = xp.asarray(scale)
+        if bool(xp.any((parameter < 0) | ~xp.isfinite(parameter))):
+            raise ValueError("scale must be finite and non-negative.")
+        shape = None if size is None else normalize_shape(size)
+        gen = self._generator_from_state(state)
+        result = gen.exponential(scale=parameter, size=shape)
+        result = xp.asarray(result, dtype=sample_dtype)
+        return self._result_and_next_state(gen, result)
+
+    def poisson(
+        self,
+        state: Any,
+        *,
+        lam: Any = 1.0,
+        size: SizeLike = None,
+        dtype: Any | None = None,
+    ) -> tuple[Any, Any]:
+        xp = self._np
+        sample_dtype = xp.dtype(dtype if dtype is not None else xp.int64)
+        if sample_dtype not in (xp.dtype(xp.int32), xp.dtype(xp.int64)):
+            raise TypeError("dtype must be int32 or int64.")
+        limit = poisson_rate_limit(lam, int(xp.iinfo(sample_dtype).max))
+        parameter = xp.asarray(lam)
+        if bool(xp.any((parameter < 0) | ~xp.isfinite(parameter))):
+            raise ValueError("lam must be finite and non-negative.")
+        if bool(xp.any(parameter > limit)):
+            raise ValueError("lam is too large for the requested dtype.")
+        shape = None if size is None else normalize_shape(size)
+        gen = self._generator_from_state(state)
+        result = gen.poisson(lam=parameter, size=shape)
+        result = xp.asarray(result, dtype=sample_dtype)
+        return self._result_and_next_state(gen, result)
+
+    def permutation(
+        self, state: Any, x: int | Any, *, axis: int = 0
+    ) -> tuple[Any, Any]:
+        np = self._np
+        if isinstance(x, Integral):
+            if x < 0:
+                raise ValueError("x must be non-negative.")
+            domain = np.arange(x)
+        else:
+            domain = np.asarray(x)
+        axis = normalize_axis(axis, domain.ndim)
+        gen = self._generator_from_state(state)
+        result = gen.permutation(domain, axis=axis)
+        return self._result_and_next_state(gen, result)
 
     def random(
         self,

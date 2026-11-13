@@ -10,6 +10,9 @@ are included in the corresponding stable release.
 
 ### Added
 
+- `integers`, `permutation`, `exponential`, and `poisson` in the object and
+  functional APIs for all four backends, including shape, dtype, RNG-state,
+  checkpoint replay, and JAX compilation support.
 - Pixi development environments for NumPy, JAX, CPU PyTorch, and CUDA CuPy,
   with test, lint, formatting, and type-check tasks used locally and in CI.
   ([#17](https://github.com/sequince-dev/orng/pull/17))

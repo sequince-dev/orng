@@ -85,6 +85,38 @@ class FunctionalBackend(Protocol):
         generator: FunctionalGenerator,
     ) -> FunctionalState: ...
 
+    def integers(
+        self,
+        state: FunctionalState,
+        *,
+        low: int,
+        high: int | None = None,
+        size: SizeLike = None,
+        dtype: Any | None = None,
+    ) -> tuple[Any, FunctionalState]: ...
+
+    def permutation(
+        self, state: FunctionalState, x: int | Any, *, axis: int = 0
+    ) -> tuple[Any, FunctionalState]: ...
+
+    def exponential(
+        self,
+        state: FunctionalState,
+        *,
+        scale: Any = 1.0,
+        size: SizeLike = None,
+        dtype: Any | None = None,
+    ) -> tuple[Any, FunctionalState]: ...
+
+    def poisson(
+        self,
+        state: FunctionalState,
+        *,
+        lam: Any = 1.0,
+        size: SizeLike = None,
+        dtype: Any | None = None,
+    ) -> tuple[Any, FunctionalState]: ...
+
     def random(
         self,
         state: FunctionalState,

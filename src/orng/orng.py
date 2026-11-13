@@ -27,6 +27,25 @@ class RNGBackend(Protocol):
 
     def load_state_dict(self, state: Mapping[str, Any]) -> None: ...
 
+    def integers(
+        self,
+        *,
+        low: int,
+        high: int | None,
+        size: SizeLike,
+        dtype: Any | None,
+    ) -> Any: ...
+
+    def permutation(self, x: int | Any, *, axis: int) -> Any: ...
+
+    def exponential(
+        self, *, scale: Any, size: SizeLike, dtype: Any | None
+    ) -> Any: ...
+
+    def poisson(
+        self, *, lam: Any, size: SizeLike, dtype: Any | None
+    ) -> Any: ...
+
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any: ...
 
     def uniform(
@@ -121,6 +140,120 @@ class RandomGenerator:
             generator=self.generator,
             device=self.device,
         )
+
+    def integers(
+        self,
+        low: int,
+        high: int | None = None,
+        size: SizeLike = None,
+        *,
+        dtype: Any | None = None,
+    ) -> Any:
+        """Draw integers from the half-open interval ``[low, high)``.
+
+        Parameters
+        ----------
+        low : int
+            Inclusive lower bound, or exclusive upper bound when high is None.
+        high : int or None, optional
+            Exclusive upper bound. Both bounds must fit in the output dtype.
+        size : int, sequence of int, or None, optional
+            Output shape. None returns a scalar sample.
+        dtype : dtype or None, optional
+            Backend-native int32 or int64. Defaults to int64 except on JAX,
+            where the default integer dtype follows the JAX X64 configuration.
+
+        Returns
+        -------
+        samples : array or scalar
+            Integer samples with the requested shape and dtype.
+        """
+        return self._impl.integers(low=low, high=high, size=size, dtype=dtype)
+
+    def permutation(self, x: int | Any, axis: int = 0) -> Any:
+        """Return a shuffled copy of a range or array.
+
+        Parameters
+        ----------
+        x : int or array_like
+            Non-negative range length, or an array with at least one dimension.
+        axis : int, optional
+            Axis to permute. All slices use the same permutation. For integer
+            input, only 0 and -1 are valid.
+
+        Returns
+        -------
+        shuffled : array
+            A copy with the input shape and dtype, or a permuted arange(x).
+            The input array is never modified.
+        """
+        return self._impl.permutation(x, axis=axis)
+
+    def exponential(
+        self,
+        scale: Any = 1.0,
+        size: SizeLike = None,
+        *,
+        dtype: Any | None = None,
+    ) -> Any:
+        """Draw samples from an exponential distribution.
+
+        Parameters
+        ----------
+        scale : float or array_like, optional
+            Finite, non-negative scale (the mean), not the rate.
+        size : int, sequence of int, or None, optional
+            Full output shape, to which scale must broadcast. When None, use
+            the parameter shape; scalar parameters return a scalar sample.
+        dtype : dtype or None, optional
+            Backend-native float32 or float64. Defaults to float64 for NumPy
+            and CuPy, and float32 for PyTorch and JAX.
+
+        Returns
+        -------
+        samples : array or scalar
+            Non-negative floating-point samples with the requested shape.
+
+        Notes
+        -----
+        JAX array parameters must satisfy the constraints before entering jit;
+        dynamic array values are not checked inside compiled sampling calls.
+        """
+        return self._impl.exponential(scale=scale, size=size, dtype=dtype)
+
+    def poisson(
+        self,
+        lam: Any = 1.0,
+        size: SizeLike = None,
+        *,
+        dtype: Any | None = None,
+    ) -> Any:
+        """Draw samples from a Poisson distribution.
+
+        Parameters
+        ----------
+        lam : float or array_like, optional
+            Finite, non-negative expected event count. Rates near the output
+            integer limit are rejected, reserving ten standard deviations.
+            JAX array inputs must also satisfy this bound before entering jit.
+        size : int, sequence of int, or None, optional
+            Full output shape, to which lam must broadcast. When None, use
+            the parameter shape; scalar parameters return a scalar sample.
+        dtype : dtype or None, optional
+            Backend-native int32 or int64. Defaults to int64 except on JAX,
+            where the default integer dtype follows the JAX X64 configuration.
+
+        Returns
+        -------
+        samples : array or scalar
+            Non-negative integer event counts with the requested shape.
+
+        Notes
+        -----
+        JAX array parameters must satisfy the constraints before entering jit;
+        dynamic array values are not checked inside compiled sampling calls.
+        """
+        return self._impl.poisson(lam=lam, size=size, dtype=dtype)
 
     def random(
         self,
