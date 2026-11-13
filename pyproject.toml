@@ -43,9 +43,13 @@ test = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
 ]
-dev = [
+lint = [
     "pre-commit",
     "mypy>=1.10",
+    "ruff==0.14.*",
+]
+dev = [
+    {include-group = "lint"},
     {include-group = "test"},
 ]
 
@@ -66,3 +70,77 @@ mypy_path = ["src"]
 ignore_missing_imports = true
 warn_unused_configs = true
 show_error_codes = true
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+requires-pixi = ">=0.78"
+platforms = [
+    "linux-64",
+    "osx-arm64",
+    { name = "linux-64-cuda12", platform = "linux-64", cuda = "12" },
+    { name = "linux-64-cuda13", platform = "linux-64", cuda = "13" },
+]
+
+[tool.pixi.pypi-dependencies]
+orng = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { features = ["cpu", "py313", "numpy", "test", "lint"], solve-group = "py313" }
+py310 = ["cpu", "py310", "numpy", "test"]
+py311 = ["cpu", "py311", "numpy", "test"]
+py312 = ["cpu", "py312", "numpy", "test"]
+py313 = { features = ["cpu", "py313", "numpy", "test"], solve-group = "py313" }
+all-backends = ["cpu", "py313", "numpy", "test", "jax", "jax-cpu", "torch-cpu"]
+jax = ["cpu", "py313", "numpy", "test", "jax", "jax-cpu"]
+torch = ["cpu", "py313", "numpy", "test", "torch-cpu"]
+cupy-cuda12 = ["py313", "numpy", "test", "cuda12", "cupy"]
+cupy-cuda13 = ["py313", "numpy", "test", "cuda13", "cupy"]
+
+[tool.pixi.feature.cpu]
+platforms = ["linux-64", "osx-arm64"]
+
+[tool.pixi.feature.py310.dependencies]
+python = "3.10.*"
+
+[tool.pixi.feature.py311.dependencies]
+python = "3.11.*"
+
+[tool.pixi.feature.py312.dependencies]
+python = "3.12.*"
+
+[tool.pixi.feature.py313.dependencies]
+python = "3.13.*"
+
+[tool.pixi.feature.test.tasks]
+test = "python -m pytest"
+test-backends = "python -m pytest tests/test_backends.py tests/test_functional_backends.py"
+
+[tool.pixi.feature.lint.tasks]
+lint = "ruff check ."
+format-check = "ruff format --check ."
+typecheck = "mypy"
+
+[tool.pixi.feature.jax-cpu.activation.env]
+JAX_PLATFORMS = "cpu"
+
+[tool.pixi.feature.torch-cpu.dependencies]
+pytorch-cpu = ">=2.0"
+libblas = { version = "*", build = "*openblas" }
+
+[tool.pixi.feature.cuda12]
+platforms = ["linux-64-cuda12"]
+
+[tool.pixi.feature.cuda12.dependencies]
+cuda-version = "12.*"
+
+[tool.pixi.feature.cuda13]
+platforms = ["linux-64-cuda13"]
+
+[tool.pixi.feature.cuda13.dependencies]
+cuda-version = "13.*"
+
+[tool.pixi.feature.cupy.dependencies]
+cupy = ">=12.0"
+
+[tool.pixi.feature.cupy.tasks]
+check-cupy = "python -c \"import cupy as cp; assert cp.cuda.runtime.getDeviceCount() > 0; x = cp.arange(10); assert int(cp.sum(x).get()) == 45; print('CuPy CUDA OK')\""
