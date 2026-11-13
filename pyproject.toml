@@ -91,6 +91,10 @@ py311 = ["cpu", "py311", "numpy", "test"]
 py312 = ["cpu", "py312", "numpy", "test"]
 py313 = { features = ["cpu", "py313", "numpy", "test"], solve-group = "py313" }
 all-backends = ["cpu", "py313", "numpy", "test", "jax", "jax-cpu", "torch-cpu"]
+ci-py310 = ["cpu", "py310", "numpy", "test", "jax", "jax-cpu", "torch-cpu"]
+ci-py311 = ["cpu", "py311", "numpy", "test", "jax", "jax-cpu", "torch-cpu"]
+ci-py312 = ["cpu", "py312", "numpy", "test", "jax", "jax-cpu", "torch-cpu"]
+cupy-api = ["cpu", "py312", "numpy", "test", "cupy-api"]
 jax = ["cpu", "py313", "numpy", "test", "jax", "jax-cpu"]
 torch = ["cpu", "py313", "numpy", "test", "torch-cpu"]
 cupy-cuda12 = ["py313", "numpy", "test", "cuda12", "cupy"]
@@ -122,6 +126,10 @@ typecheck = "mypy"
 
 [tool.pixi.feature.jax-cpu.activation.env]
 JAX_PLATFORMS = "cpu"
+
+# CI builds CuPy without CUDA, outside the normal GPU environments.
+[tool.pixi.feature.cupy-api.dependencies]
+pip = "*"
 
 [tool.pixi.feature.torch-cpu.dependencies]
 pytorch-cpu = ">=2.0"
