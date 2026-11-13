@@ -8,6 +8,10 @@ generators. It mirrors a subset of the `numpy.random.Generator` API:
 - `normal`
 - `choice`
 - `gamma`
+- `integers`
+- `permutation`
+- `exponential`
+- `poisson`
 
 letting you pick the underlying backend at runtime. The following backends are
 currently supported:
@@ -44,6 +48,7 @@ from orng import RandomGenerator
 rng = RandomGenerator(backend="numpy", seed=42)
 samples = rng.normal(loc=0.0, scale=1.0, size=5)
 uniform = rng.uniform(low=-1.0, high=1.0, size=(2, 2))
+indices = rng.integers(0, 10, size=5)
 ```
 
 The backend module is imported lazily. If the requested library is missing,
@@ -107,6 +112,10 @@ Supported functional methods:
 - `normal`
 - `choice`
 - `gamma`
+- `integers`
+- `permutation`
+- `exponential`
+- `poisson`
 
 ### JAX Compilation Example
 
@@ -146,8 +155,7 @@ inputs:
 If `generator=None`, ORNG creates a new backend-native state from `seed`. If
 `seed=None`, the backend chooses a fresh random seed using its usual behavior.
 
-The `state` value passed into `random`, `uniform`, `normal`, `choice`, and
-`gamma` also matches the backend:
+The `state` value passed into every sampling method also matches the backend:
 
 | Backend | `pure=True` state | `pure=False` state |
 |---------|-------------------|--------------------|

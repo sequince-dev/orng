@@ -2,9 +2,18 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from numbers import Integral
 from typing import Any
 
-from .._utils import SizeLike, normalize_shape, total_size
+from .._utils import (
+    SizeLike,
+    integer_bounds,
+    normalize_axis,
+    normalize_shape,
+    poisson_rate_limit,
+    total_size,
+    validate_nonnegative_scalar,
+)
 
 
 class TorchBackend:
@@ -17,6 +26,32 @@ class TorchBackend:
     ) -> None:
         self._impl = TorchFunctionalBackend(device=device, pure=False)
         self._state = self._impl.init_state(seed=seed, generator=generator)
+
+    def integers(
+        self, *, low: int, high: int | None, size: SizeLike, dtype: Any | None
+    ) -> Any:
+        result, self._state = self._impl.integers(
+            self._state, low=low, high=high, size=size, dtype=dtype
+        )
+        return result
+
+    def permutation(self, x: int | Any, *, axis: int) -> Any:
+        result, self._state = self._impl.permutation(self._state, x, axis=axis)
+        return result
+
+    def exponential(
+        self, *, scale: Any, size: SizeLike, dtype: Any | None
+    ) -> Any:
+        result, self._state = self._impl.exponential(
+            self._state, scale=scale, size=size, dtype=dtype
+        )
+        return result
+
+    def poisson(self, *, lam: Any, size: SizeLike, dtype: Any | None) -> Any:
+        result, self._state = self._impl.poisson(
+            self._state, lam=lam, size=size, dtype=dtype
+        )
+        return result
 
     def random(self, *, size: SizeLike, dtype: Any | None) -> Any:
         result, self._state = self._impl.random(
@@ -198,6 +233,96 @@ class TorchFunctionalBackend:
                 device=state_device,
             ),
         )
+
+    def integers(
+        self,
+        state: Any,
+        *,
+        low: int,
+        high: int | None = None,
+        size: SizeLike = None,
+        dtype: Any | None = None,
+    ) -> tuple[Any, Any]:
+        torch = self._torch
+        sample_dtype = dtype if dtype is not None else torch.int64
+        if sample_dtype not in (torch.int32, torch.int64):
+            raise TypeError("dtype must be int32 or int64.")
+        limits = torch.iinfo(sample_dtype)
+        low, high = integer_bounds(low, high, limits.min, limits.max)
+        shape = normalize_shape(size)
+        gen, device = self._generator_from_state(state)
+        result = torch.randint(
+            low, high, shape, generator=gen, device=device, dtype=sample_dtype
+        )
+        return self._result_and_next_state(gen, state, result)
+
+    def permutation(
+        self, state: Any, x: int | Any, *, axis: int = 0
+    ) -> tuple[Any, Any]:
+        torch = self._torch
+        gen, device = self._generator_from_state(state)
+        if isinstance(x, Integral):
+            if x < 0:
+                raise ValueError("x must be non-negative.")
+            domain = torch.arange(x, device=device)
+        else:
+            domain = torch.as_tensor(x, device=device)
+        axis = normalize_axis(axis, domain.ndim)
+        indices = torch.randperm(
+            domain.shape[axis], generator=gen, device=device
+        )
+        result = domain.index_select(axis, indices)
+        return self._result_and_next_state(gen, state, result)
+
+    def exponential(
+        self,
+        state: Any,
+        *,
+        scale: Any = 1.0,
+        size: SizeLike = None,
+        dtype: Any | None = None,
+    ) -> tuple[Any, Any]:
+        torch = self._torch
+        sample_dtype = dtype if dtype is not None else torch.float32
+        if sample_dtype not in (torch.float32, torch.float64):
+            raise TypeError("dtype must be float32 or float64.")
+        validate_nonnegative_scalar(scale, "scale")
+        gen, device = self._generator_from_state(state)
+        scales = torch.as_tensor(scale, device=device, dtype=sample_dtype)
+        if bool(torch.any((scales < 0) | ~torch.isfinite(scales))):
+            raise ValueError("scale must be finite and non-negative.")
+        shape = scales.shape if size is None else normalize_shape(size)
+        scales = torch.broadcast_to(scales, shape)
+        result = torch.empty(shape, device=device, dtype=sample_dtype)
+        result.exponential_(generator=gen)
+        result = result * scales
+        return self._result_and_next_state(gen, state, result)
+
+    def poisson(
+        self,
+        state: Any,
+        *,
+        lam: Any = 1.0,
+        size: SizeLike = None,
+        dtype: Any | None = None,
+    ) -> tuple[Any, Any]:
+        torch = self._torch
+        sample_dtype = dtype if dtype is not None else torch.int64
+        if sample_dtype not in (torch.int32, torch.int64):
+            raise TypeError("dtype must be int32 or int64.")
+        limit = poisson_rate_limit(lam, torch.iinfo(sample_dtype).max)
+        gen, device = self._generator_from_state(state)
+        # Poisson draws are floating point in PyTorch. Float64 avoids rounding
+        # integer counts above 2**24 before conversion to the output dtype.
+        rates = torch.as_tensor(lam, device=device, dtype=torch.float64)
+        if bool(torch.any((rates < 0) | ~torch.isfinite(rates))):
+            raise ValueError("lam must be finite and non-negative.")
+        if bool(torch.any(rates > limit)):
+            raise ValueError("lam is too large for the requested dtype.")
+        shape = rates.shape if size is None else normalize_shape(size)
+        rates = torch.broadcast_to(rates, shape)
+        result = torch.poisson(rates, generator=gen).to(dtype=sample_dtype)
+        return self._result_and_next_state(gen, state, result)
 
     def random(
         self,
